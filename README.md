@@ -518,6 +518,21 @@ ranges (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) and NetBird's are not.
 > and flash the firmware. On a mesh network that means every peer, and every device the
 > machine is shared with.
 
+## How this was built
+
+Much of this code was written with an AI assistant (Claude Code), working with a human
+who owns the hardware and ran everything on it. Saying so plainly seems better than
+leaving you to work it out.
+
+Two things follow, and they cut both ways:
+
+- The numbers in this README were measured, not guessed — frame rates, current draw, the
+  TPM2 off-by-one that leaves the last LED dark, the baud desynchronisation. Each one
+  came from running the device and reading what came back. Where something was not
+  measured, the text says so.
+- One pair of eyes reviewed the result. Read the code before trusting it with your
+  hardware, as you would with any small project.
+
 ## Licence and credits
 
 This project is under the **EUPL v. 1.2 or later**, like WLED, because it redistributes

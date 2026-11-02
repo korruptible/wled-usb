@@ -547,6 +547,21 @@ plages de Tailscale (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) et de NetBird ne le
 > les LEDs et flasher le firmware. Sur un réseau maillé, cela vaut pour chaque pair,
 > et pour tout appareil avec qui la machine est partagée.
 
+## Comment ce projet a été écrit
+
+Une bonne partie de ce code a été écrite avec un assistant IA (Claude Code), avec un
+humain qui possède le matériel et a tout fait tourner dessus. Autant le dire clairement
+plutôt que de vous laisser le deviner.
+
+Deux conséquences, qui vont dans les deux sens :
+
+- Les chiffres de ce README ont été **mesurés**, pas supposés — cadences, consommation,
+  le décalage d'une LED du compteur TPM2, la désynchronisation de débit. Chacun vient
+  d'un essai sur le module et de ce qu'il a répondu. Là où rien n'a été mesuré, le texte
+  le dit.
+- Une seule paire d'yeux a relu l'ensemble. Lisez le code avant de lui confier votre
+  matériel, comme pour n'importe quel petit projet.
+
 ## Licence et crédits
 
 Le projet est sous **EUPL v. 1.2 ou ultérieure**, comme WLED, puisqu'il redistribue
