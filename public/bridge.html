@@ -1,0 +1,505 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pont USB WLED</title>
+<style>
+  :root { color-scheme: dark; --bg:#0e0e10; --card:#17171a; --line:#2a2a30;
+          --txt:#e6e6e9; --dim:#9a9aa4; --ok:#37d67a; --ko:#ef5350; --accent:#4ea8ff; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--txt);
+         font:15px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif; }
+  header { display:flex; align-items:baseline; gap:1rem; flex-wrap:wrap;
+           padding:1.2rem 1.5rem; border-bottom:1px solid var(--line); }
+  h1 { font-size:1.15rem; margin:0; }
+  header a { color:var(--accent); text-decoration:none; font-size:.9rem; }
+  main { max-width:56rem; margin:0 auto; padding:1.5rem; display:grid; gap:1.25rem; }
+  section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:1.1rem 1.25rem; }
+  h2 { font-size:1rem; margin:0 0 .85rem; }
+  dl { display:grid; grid-template-columns:auto 1fr; gap:.35rem 1rem; margin:0; font-size:.92rem; }
+  dt { color:var(--dim); }
+  dd { margin:0; font-variant-numeric:tabular-nums; }
+  .pill { display:inline-flex; align-items:center; gap:.45rem; font-weight:600; }
+  .dot { width:.6rem; height:.6rem; border-radius:50%; background:var(--ko); }
+  .dot.on { background:var(--ok); }
+  .row { display:flex; gap:.75rem; flex-wrap:wrap; align-items:flex-end; margin-bottom:.9rem; }
+  label { display:block; font-size:.8rem; color:var(--dim); margin-bottom:.3rem; }
+  input[type=text], input[type=number], select {
+    background:#0b0b0d; color:var(--txt); border:1px solid var(--line);
+    border-radius:6px; padding:.45rem .6rem; font:inherit; font-size:.9rem; }
+  input[type=file] { font-size:.85rem; }
+  button { background:var(--accent); color:#06121f; border:0; border-radius:6px;
+           padding:.55rem 1rem; font:inherit; font-weight:600; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--txt); border:1px solid var(--line); font-weight:500; }
+  button:disabled { opacity:.45; cursor:not-allowed; }
+  .warn { background:#2a1d0c; border:1px solid #5a3f14; color:#f0c478;
+          border-radius:6px; padding:.65rem .8rem; font-size:.87rem; margin-bottom:.9rem; }
+  pre { background:#08080a; border:1px solid var(--line); border-radius:6px;
+        padding:.75rem; margin:0; max-height:22rem; overflow:auto;
+        font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; }
+  .muted { color:var(--dim); font-size:.87rem; }
+  .err { color:var(--ko); }
+  .preset { display:flex; align-items:center; gap:.6rem; margin-bottom:.45rem; }
+  .preset .slot { width:2.2rem; color:var(--dim); font-variant-numeric:tabular-nums; }
+  .preset input { flex:1; max-width:22rem; }
+  h3 { font-size:.82rem; text-transform:uppercase; letter-spacing:.06em;
+       color:var(--dim); margin:1.2rem 0 .6rem; font-weight:600; }
+  .pat, .rule { display:flex; align-items:center; gap:.5rem; margin-bottom:.45rem; flex-wrap:wrap; }
+  .pat .nm { width:5.5rem; font-weight:600; }
+  .pat input[type=number] { width:4.2rem; }
+  .pat input[type=color] { width:2.4rem; height:1.9rem; padding:0; border:1px solid var(--line);
+                           border-radius:5px; background:#0b0b0d; }
+  .rule input { width:10rem; }
+  .unit { color:var(--dim); font-size:.78rem; }
+  .toggle { display:flex; align-items:center; gap:.5rem; font-size:.92rem;
+            color:var(--txt); margin-bottom:.4rem; }
+  table.log { width:100%; border-collapse:collapse; font-size:.85rem; }
+  table.log td { padding:.25rem .5rem .25rem 0; border-bottom:1px solid var(--line); }
+  table.log td:last-child { color:var(--dim); text-align:right; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pont USB WLED</h1>
+  <a href="/">← interface de contrôle</a>
+</header>
+
+<main>
+  <section>
+    <h2>État de la liaison</h2>
+    <dl id="status">
+      <dt>Lien</dt><dd class="muted">…</dd>
+    </dl>
+    <p class="muted" id="mismatch" hidden></p>
+  </section>
+
+  <section>
+    <h2>Presets</h2>
+    <p class="muted">Les <em>noms</em> de presets sont stockés dans le système de fichiers du module
+       et ne transitent pas par le port série. Le pont les mémorise localement : renommer ici
+       n'écrit rien sur le module. La détection charge chaque emplacement tour à tour —
+       les LEDs vont défiler, puis l'état courant est restauré.</p>
+    <div class="row">
+      <div>
+        <label for="scanTo">Scanner les emplacements 1 à</label>
+        <input type="number" id="scanTo" value="25" min="1" max="250" style="width:5rem">
+      </div>
+      <button class="ghost" id="scan">Détecter</button>
+    </div>
+    <div id="presets" class="muted">…</div>
+  </section>
+
+  <section>
+    <h2>Notifications</h2>
+    <label class="toggle"><input type="checkbox" id="notifEnabled"> Activer les notifications</label>
+    <p class="muted" id="notifSources">…</p>
+
+    <h3>Motifs</h3>
+    <div id="patterns"></div>
+    <p class="muted" id="notifBudget"></p>
+
+    <h3>Règles — application du téléphone → motif</h3>
+    <div id="rules"></div>
+    <div class="row" style="margin-top:.6rem">
+      <button class="ghost" id="addRule">Ajouter une règle</button>
+      <button id="saveNotif">Enregistrer</button>
+      <span class="muted" id="notifSaved"></span>
+    </div>
+
+    <h3>Journal</h3>
+    <div id="notifLog" class="muted">…</div>
+  </section>
+
+  <section>
+    <h2>Son du Mac</h2>
+    <p class="muted" id="audioState">…</p>
+    <div id="audioMeter" style="height:10px;background:#1a1a1e;border:1px solid var(--line);
+         border-radius:5px;overflow:hidden;margin:.5rem 0">
+      <div id="audioBar" style="height:100%;width:0;background:linear-gradient(90deg,#2f7,#fd4,#f55);
+           transition:width .1s linear"></div>
+    </div>
+    <div class="row">
+      <label>Rendu
+        <select id="audioMode"></select>
+      </label>
+      <label>Palette
+        <select id="audioPalette"></select>
+      </label>
+      <label>Gain <span class="muted" id="audioGainValue"></span>
+        <input type="range" id="audioGain" min="0.2" max="6" step="0.1">
+      </label>
+      <label class="toggle"><input type="checkbox" id="audioAuto"> Gain automatique
+        <span class="muted" id="audioDrive"></span>
+      </label>
+      <label>Images/s <span class="muted" id="audioFpsValue"></span>
+        <input type="range" id="audioFps" min="5" max="60" step="1">
+      </label>
+    </div>
+    <div class="row">
+      <label>Finesse <span class="muted" id="audioCurveValue"></span>
+        <input type="range" id="audioCurve" min="0.2" max="1" step="0.05">
+      </label>
+      <label>Plancher <span class="muted" id="audioFloorValue"></span>
+        <input type="range" id="audioFloor" min="0" max="0.4" step="0.01">
+      </label>
+    </div>
+    <p class="muted">
+      La <strong>finesse</strong> étale les faibles niveaux : plus elle est basse, plus
+      les petites variations deviennent visibles. Le <strong>plancher</strong> donne une
+      lueur minimale dès qu'il y a du son.
+    </p>
+    <p class="muted" id="audioCounters"></p>
+    <p class="muted">
+      La capture s'active depuis le menu de l'app, pas ici : macOS demande l'autorisation
+      « enregistrement audio du système » au premier clic.
+    </p>
+  </section>
+
+  <section>
+    <h2>Mise à jour du firmware</h2>
+    <div class="warn">
+      Le flash coupe le pont le temps de l'opération et redémarre le module.
+      Ne débranchez rien pendant l'écriture.
+      Par défaut seule l'<strong>application</strong> est écrite en <code>0x10000</code> :
+      bootloader, table de partitions, système de fichiers et configuration sont conservés.
+    </div>
+    <div class="row">
+      <div>
+        <label for="file">Image .bin</label>
+        <input type="file" id="file" accept=".bin,application/octet-stream">
+      </div>
+      <div>
+        <label for="offset">Adresse</label>
+        <input type="text" id="offset" value="0x10000" size="9">
+      </div>
+      <div>
+        <label for="baud">Débit</label>
+        <select id="baud">
+          <option>115200</option><option>230400</option>
+          <option selected>460800</option><option>921600</option>
+        </select>
+      </div>
+      <button id="go">Flasher</button>
+      <button class="ghost" id="probe">Tester le bootloader</button>
+      <button class="ghost" id="clear">Effacer le journal</button>
+    </div>
+    <p class="muted">
+      Images officielles : <code>WLED_&lt;version&gt;_ESP32.bin</code> depuis les releases GitHub du projet WLED.
+      Pour une image complète fusionnée, mettez l'adresse à <code>0x0</code>.
+    </p>
+    <pre id="log">(aucun flash lancé)</pre>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let logCursor = 0, flashing = false;
+
+function line(key, value) {
+  return `<dt>${key}</dt><dd>${value ?? "—"}</dd>`;
+}
+
+async function refreshStatus() {
+  const box = $("status");
+  let s;
+  try {
+    s = await (await fetch("/bridge/status")).json();
+  } catch {
+    box.innerHTML = `<dt>Lien</dt><dd class="err">pont injoignable</dd>`;
+    return;
+  }
+  const d = s.device || {};
+  box.innerHTML =
+    `<dt>Lien</dt><dd><span class="pill"><span class="dot${s.connected ? " on" : ""}"></span>` +
+    `${s.connected ? "connecté" : "déconnecté"}</span></dd>` +
+    line("Port", `${s.port} @ ${s.baudrate} bauds`) +
+    line("Module", d.name) +
+    line("Firmware", d.version ? `${d.version} (${d.arch})` : null) +
+    line("LEDs", d.ledCount != null ? `${d.ledCount} · ${d.fps ?? "?"} fps` : null) +
+    line("Uptime", d.uptime != null ? `${d.uptime} s` : null) +
+    line("Mémoire libre", d.freeHeap != null ? `${(d.freeHeap / 1024).toFixed(0)} Kio` : null) +
+    line("Clients live", s.wsClients) +
+    (s.error ? `<dt>Erreur</dt><dd class="err">${s.error}</dd>` : "");
+  const m = $("mismatch");
+  m.hidden = !s.dataMismatch;
+  m.textContent = s.dataMismatch
+    ? `Attention : la base d'effets embarquée (${s.dataVersion}) ne correspond pas au module — ${s.dataMismatch}`
+    : "";
+}
+
+async function pollFlash() {
+  const s = await (await fetch(`/bridge/flash/status?since=${logCursor}`)).json();
+  if (s.lines.length) {
+    const pre = $("log");
+    if (logCursor === 0) pre.textContent = "";
+    pre.textContent += s.lines.join("\n") + "\n";
+    pre.scrollTop = pre.scrollHeight;
+    logCursor = s.next;
+  }
+  if (s.running) return setTimeout(pollFlash, 400);
+  flashing = false;
+  $("go").disabled = false;
+  $("go").textContent = "Flasher";
+}
+
+$("go").onclick = async () => {
+  const file = $("file").files[0];
+  if (!file) return alert("Choisissez d'abord une image .bin");
+  const offset = $("offset").value.trim();
+  if (!confirm(`Écrire ${file.name} (${(file.size / 1024).toFixed(0)} Kio) en ${offset} ?`)) return;
+
+  flashing = true;
+  logCursor = 0;
+  $("go").disabled = true;
+  $("go").textContent = "Flash en cours…";
+  $("log").textContent = "";
+
+  const url = `/bridge/flash?offset=${encodeURIComponent(offset)}&baud=${$("baud").value}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/octet-stream" },
+    body: file,
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    $("log").textContent = "Échec : " + err.error;
+    flashing = false;
+    $("go").disabled = false;
+    $("go").textContent = "Flasher";
+    return;
+  }
+  pollFlash();
+};
+
+$("probe").onclick = async () => {
+  flashing = true;
+  logCursor = 0;
+  $("log").textContent = "";
+  const res = await fetch("/bridge/flash/probe", { method: "POST" });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }));
+    $("log").textContent = "Échec : " + err.error;
+    flashing = false;
+    return;
+  }
+  pollFlash();
+};
+
+$("clear").onclick = () => { $("log").textContent = "(journal effacé)"; };
+
+async function refreshPresets() {
+  const box = $("presets");
+  let store;
+  try { store = await (await fetch("/presets.json")).json(); } catch { return; }
+  const slots = Object.keys(store).filter((k) => k !== "0").sort((a, b) => a - b);
+  if (!slots.length) {
+    box.textContent = "Aucun preset mémorisé pour l'instant — utilisez-en un depuis l'interface, ou lancez une détection.";
+    return;
+  }
+  box.innerHTML = slots.map((s) => {
+    const name = String(store[s].n ?? "").replace(/"/g, "&quot;");
+    return `<div class="preset"><span class="slot">${s}</span>` +
+           `<input type="text" data-slot="${s}" value="${name}">` +
+           `<button class="ghost" data-forget="${s}">oublier</button></div>`;
+  }).join("");
+  box.querySelectorAll("input[data-slot]").forEach((input) => {
+    input.onchange = async () => {
+      await fetch(`/bridge/presets/name?slot=${input.dataset.slot}`,
+                  { method: "POST", body: JSON.stringify({ n: input.value }) });
+      refreshPresets();
+
+    };
+  });
+  box.querySelectorAll("button[data-forget]").forEach((button) => {
+    button.onclick = async () => {
+      await fetch(`/bridge/presets/forget?slot=${button.dataset.forget}`, { method: "POST" });
+      refreshPresets();
+    };
+  });
+}
+
+$("scan").onclick = async () => {
+  const button = $("scan");
+  button.disabled = true;
+  button.textContent = "Détection…";
+  try {
+    await fetch(`/bridge/presets/scan?to=${$("scanTo").value}`, { method: "POST" });
+  } finally {
+    button.disabled = false;
+    button.textContent = "Détecter";
+    refreshPresets();
+  }
+};
+
+refreshPresets();
+let notifConfig = null;
+
+const hex = (rgb) => "#" + rgb.map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, "0")).join("");
+const rgb = (value) => [1, 3, 5].map((i) => parseInt(value.slice(i, i + 2), 16));
+
+function renderPatterns() {
+  $("patterns").innerHTML = Object.entries(notifConfig.patterns).map(([name, p]) => `
+    <div class="pat" data-name="${name}">
+      <span class="nm">${name}</span>
+      <input type="color" data-k="color" value="${hex(p.color)}">
+      <input type="number" data-k="leds" value="${p.leds ?? ""}" min="1" max="2000" title="LEDs allumées"><span class="unit">leds</span>
+      <input type="number" data-k="bri" value="${p.bri}" min="1" max="255" title="luminosité"><span class="unit">bri</span>
+      <input type="number" data-k="flashes" value="${p.flashes}" min="1" max="20" title="nombre de flashs"><span class="unit">flashs</span>
+      <button class="ghost" data-test="${name}">Tester</button>
+    </div>`).join("");
+
+  $("patterns").querySelectorAll("input").forEach((input) => {
+    input.onchange = () => {
+      const name = input.closest(".pat").dataset.name;
+      const key = input.dataset.k;
+      notifConfig.patterns[name][key] = key === "color" ? rgb(input.value) : Number(input.value);
+    };
+  });
+  $("patterns").querySelectorAll("button[data-test]").forEach((button) => {
+    button.onclick = () => fetch(`/bridge/notify/test?pattern=${encodeURIComponent(button.dataset.test)}`,
+                                 { method: "POST" });
+  });
+}
+
+function renderRules() {
+  const names = Object.keys(notifConfig.patterns);
+  $("rules").innerHTML = notifConfig.rules.map((rule, index) => `
+    <div class="rule" data-i="${index}">
+      <input type="text" data-k="app" value="${String(rule.app).replace(/"/g, "&quot;")}" placeholder="Slack">
+      <span class="unit">→</span>
+      <select data-k="pattern">${names.map((n) =>
+        `<option${n === rule.pattern ? " selected" : ""}>${n}</option>`).join("")}</select>
+      <button class="ghost" data-del="${index}">retirer</button>
+    </div>`).join("");
+
+  $("rules").querySelectorAll("input,select").forEach((field) => {
+    field.onchange = () => {
+      const index = Number(field.closest(".rule").dataset.i);
+      notifConfig.rules[index][field.dataset.k] = field.value;
+    };
+  });
+  $("rules").querySelectorAll("button[data-del]").forEach((button) => {
+    button.onclick = () => {
+      notifConfig.rules.splice(Number(button.dataset.del), 1);
+      renderRules();
+    };
+  });
+}
+
+function renderLog(recent) {
+  if (!recent.length) { $("notifLog").textContent = "Aucune notification reçue."; return; }
+  $("notifLog").innerHTML = "<table class='log'>" + recent.slice(0, 12).map((e) => {
+    const when = new Date(e.at * 1000).toLocaleTimeString();
+    const what = [e.app, e.title].filter(Boolean).join(" — ");
+    return `<tr><td>${when}</td><td>${what}</td><td>${e.pattern} · ${e.outcome}</td></tr>`;
+  }).join("") + "</table>";
+}
+
+async function refreshNotify(full = true) {
+  let data;
+  try { data = await (await fetch("/bridge/notify")).json(); } catch { return; }
+  renderLog(data.recent);
+  const kde = (data.sources || {}).kdeconnect;
+  $("notifSources").textContent = kde
+    ? `KDE Connect : ${kde.detail}${kde.bus ? ` (bus ${kde.bus})` : ""}`
+    : "Aucune source configurée.";
+  if (!full && notifConfig) return;
+  notifConfig = data.config;
+  $("notifEnabled").checked = !!notifConfig.enabled;
+  $("notifBudget").textContent =
+    `Budget de courant : ${notifConfig.powerBudgetMa} mA demandés, plafonnés par la limite du module. ` +
+    `La luminosité d'un motif est réduite automatiquement s'il dépasse.`;
+  renderPatterns();
+  renderRules();
+}
+
+$("notifEnabled").onchange = () => { notifConfig.enabled = $("notifEnabled").checked; };
+
+$("addRule").onclick = () => {
+  notifConfig.rules.push({ app: "", pattern: Object.keys(notifConfig.patterns)[0], priority: 10 });
+  renderRules();
+};
+
+$("saveNotif").onclick = async () => {
+  notifConfig.rules = notifConfig.rules.filter((r) => String(r.app).trim());
+  await fetch("/bridge/notify/config", { method: "POST", body: JSON.stringify(notifConfig) });
+  $("notifSaved").textContent = "enregistré";
+  setTimeout(() => { $("notifSaved").textContent = ""; }, 2000);
+  refreshNotify();
+};
+
+refreshNotify();
+setInterval(() => refreshNotify(false), 4000);
+
+
+let audioConfig = null;
+
+async function refreshAudio() {
+  let data;
+  try { data = await (await fetch("/bridge/audio")).json(); } catch { return; }
+
+  if (!data.running) {
+    $("audioState").textContent = "capture inactive — à activer dans le menu de l'app";
+    $("audioBar").style.width = "0";
+    $("audioCounters").textContent = "";
+    return;
+  }
+  $("audioState").textContent = data.error
+    ? `erreur : ${data.error}`
+    : (data.paused ? "en pause (notification en cours)" : "capture active");
+  $("audioBar").style.width = Math.round((data.level || 0) * 100) + "%";
+  $("audioCounters").textContent =
+    `${data.frames} images envoyées, ${data.dropped} écartées par le plafond de cadence.`;
+  $("audioDrive").textContent = data.auto ? `appliqué : ${data.drive}` : "";
+
+  if (audioConfig) return;
+  audioConfig = data;
+  $("audioMode").innerHTML = (data.modes || [])
+    .map((m) => `<option value="${m}"${m === data.mode ? " selected" : ""}>${m}</option>`).join("");
+  $("audioPalette").innerHTML = (data.palettes || [])
+    .map((p) => `<option value="${p}"${p === data.palette ? " selected" : ""}>${p}</option>`).join("");
+  $("audioGain").value = data.gain;
+  $("audioAuto").checked = !!data.auto;
+  $("audioFps").value = data.fps;
+  $("audioCurve").value = data.curve;
+  $("audioFloor").value = data.floor;
+  $("audioGainValue").textContent = data.gain;
+  $("audioFpsValue").textContent = data.fps;
+  $("audioCurveValue").textContent = data.curve;
+  $("audioFloorValue").textContent = data.floor;
+}
+
+async function pushAudio() {
+  await fetch("/bridge/audio", { method: "POST", body: JSON.stringify({
+    mode: $("audioMode").value,
+    palette: $("audioPalette").value,
+    gain: parseFloat($("audioGain").value),
+    fps: parseInt($("audioFps").value, 10),
+    curve: parseFloat($("audioCurve").value),
+    floor: parseFloat($("audioFloor").value),
+    auto: $("audioAuto").checked,
+  })});
+}
+
+$("audioMode").onchange = pushAudio;
+$("audioPalette").onchange = pushAudio;
+$("audioAuto").onchange = pushAudio;
+$("audioGain").oninput = () => { $("audioGainValue").textContent = $("audioGain").value; };
+$("audioFps").oninput = () => { $("audioFpsValue").textContent = $("audioFps").value; };
+$("audioCurve").oninput = () => { $("audioCurveValue").textContent = $("audioCurve").value; };
+$("audioFloor").oninput = () => { $("audioFloorValue").textContent = $("audioFloor").value; };
+$("audioGain").onchange = pushAudio;
+$("audioFps").onchange = pushAudio;
+$("audioCurve").onchange = pushAudio;
+$("audioFloor").onchange = pushAudio;
+
+refreshAudio();
+setInterval(refreshAudio, 500);
+
+
+refreshStatus();
+setInterval(() => { if (!flashing) refreshStatus(); }, 2000);
+</script>
+</body>
+</html>

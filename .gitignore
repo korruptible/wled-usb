@@ -1,0 +1,26 @@
+# Sauvegardes du module : l'image flash contient les identifiants Wi-Fi
+# enregistrés dans la NVS et l'adresse MAC. Ne jamais publier.
+backup/
+
+# Firmwares : binaires officiels WLED, à télécharger plutôt qu'à versionner.
+firmware/*.bin
+
+# État local : presets du module, règles de notification, réglages audio.
+data/presets.json
+data/notifications.json
+data/audio.json
+
+# Environnements et produits de compilation.
+.venv/
+app/vendor/
+app/build/
+__pycache__/
+*.pyc
+
+# Clés et certificats, quels qu'ils soient.
+*.pem
+*.p12
+*.cer
+*.key
+
+.DS_Store
