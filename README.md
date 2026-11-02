@@ -150,11 +150,16 @@ this database and flags any divergence in `/bridge/status`.
 
 ## Vendored interface
 
-`vendor/` holds the official WLED 0.15.0 UI, which drives a 16.0.1 module without trouble
-since the effect and palette lists come from the bridge. Two modifications:
+`vendor/` holds the official WLED **0.15.0** UI, taken from `wled00/data/` at that tag. It
+drives a 16.0.1 module without trouble because the effect and palette lists come from the
+bridge, not from the page. Two files are modified:
 
-- a **Bridge** button in the tab bar, linking to `/bridge`;
-- `public/skin.css`, the theming hook WLED itself provides, served as is.
+- `index.htm`: a **Bridge** button in the tab bar, linking to `/bridge`;
+- `index.js`: the WebSocket fallback used `window.location.hostname`, which drops the
+  port and would dial `ws://127.0.0.1/ws` on port 80. It now uses `window.location.host`.
+
+`index.css` and `liveview.htm` are untouched. `public/skin.css` is the theming hook WLED
+itself provides, served as is.
 
 ## Language
 

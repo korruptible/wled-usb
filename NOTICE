@@ -13,8 +13,11 @@ vendor/index.htm, vendor/index.css, vendor/index.js, vendor/liveview.htm
   Licensed under the EUPL v. 1.2 or later
   https://github.com/wled/WLED
 
-  vendor/index.htm is modified: a "Bridge" button linking to /bridge was added
-  to the tab bar. The other files are unmodified.
+  Two files are modified:
+    - index.htm: a "Bridge" button linking to /bridge was added to the tab bar;
+    - index.js: the WebSocket fallback uses window.location.host instead of
+      window.location.hostname, so that the bridge's port is kept.
+  index.css and liveview.htm are byte-for-byte identical to upstream v0.15.0.
 
 --------------------------------------------------------------------------
 vendor/iro.js
