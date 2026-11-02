@@ -155,23 +155,6 @@ en testant la présence de `palettes.h` sur le tag demandé.
 Le pont compare `fxcount`, `palcount` et `ver` remontés par le module avec cette base
 et signale toute divergence dans `/bridge/status`.
 
-## Licence et crédits
-
-Le projet est sous **EUPL v. 1.2 ou ultérieure**, comme WLED, puisqu'il redistribue
-l'interface web de WLED et des données extraites de ses sources. Voir `LICENSE` pour
-le texte et `NOTICE` pour le détail des composants tiers : UI WLED (EUPL-1.2),
-iro.js (MPL-2.0), rangetouch.js (MIT).
-
-Les binaires de firmware ne sont pas versionnés. `firmware/*.bin` est exclu par
-`.gitignore` ; récupérer la version voulue sur la
-[page des releases WLED](https://github.com/wled/WLED/releases) et vérifier son
-empreinte avant de flasher :
-
-```bash
-shasum -a 256 firmware/WLED_16.0.1_ESP32.bin
-# 628917b0753edcfc9a8408e6387c6d1ace6a360d315441e9563d60299fef8594
-```
-
 ## Interface vendorisée
 
 `vendor/` contient l'UI officielle WLED 0.15.0, qui pilote sans problème un module en
@@ -499,3 +482,20 @@ de Tailscale (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) et de NetBird ne le sont p
 > **Le pont n'a aucune authentification.** Tout ce qui atteint le port peut piloter
 > les LEDs et flasher le firmware. Sur un réseau maillé, cela vaut pour chaque pair,
 > et pour tout appareil avec qui la machine est partagée.
+
+## Licence et crédits
+
+Le projet est sous **EUPL v. 1.2 ou ultérieure**, comme WLED, puisqu'il redistribue
+l'interface web de WLED et des données extraites de ses sources. Voir `LICENSE` pour
+le texte et `NOTICE` pour le détail des composants tiers : UI WLED (EUPL-1.2),
+iro.js (MPL-2.0), rangetouch.js (MIT).
+
+Les binaires de firmware ne sont pas versionnés. `firmware/*.bin` est exclu par
+`.gitignore` ; récupérer la version voulue sur la
+[page des releases WLED](https://github.com/wled/WLED/releases) et vérifier son
+empreinte avant de flasher :
+
+```bash
+shasum -a 256 firmware/WLED_16.0.1_ESP32.bin
+# 628917b0753edcfc9a8408e6387c6d1ace6a360d315441e9563d60299fef8594
+```
