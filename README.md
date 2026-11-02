@@ -150,16 +150,23 @@ this database and flags any divergence in `/bridge/status`.
 
 ## Vendored interface
 
-`vendor/` holds the official WLED **0.15.0** UI, taken from `wled00/data/` at that tag. It
-drives a 16.0.1 module without trouble because the effect and palette lists come from the
-bridge, not from the page. Two files are modified:
+`vendor/` holds the official WLED **16.0.1** UI, taken from `wled00/data/` at that tag.
+The UI version does not have to match the firmware: effect and palette lists come from
+the bridge, not from the page, so an older UI drives a newer module perfectly well. Two
+files are modified:
 
 - `index.htm`: a **Bridge** button in the tab bar, linking to `/bridge`;
 - `index.js`: the WebSocket fallback used `window.location.hostname`, which drops the
   port and would dial `ws://127.0.0.1/ws` on port 80. It now uses `window.location.host`.
 
-`index.css` and `liveview.htm` are untouched. `public/skin.css` is the theming hook WLED
-itself provides, served as is.
+`index.css`, `liveview.htm`, `iro.js` and `rangetouch.js` are untouched.
+`public/skin.css` is the theming hook WLED itself provides, served as is.
+
+WLED 16 added an update-check banner that reads `/json/cfg`, `/edit` and `/upload` and
+posts device details to an external service. It suppresses itself when the module reports
+access-point mode, which is exactly the case here, so nothing is requested and nothing
+leaves the machine — verified by watching the network panel on a full page load. The
+bridge serves none of those three endpoints anyway.
 
 ## Language
 

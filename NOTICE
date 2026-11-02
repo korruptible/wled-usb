@@ -7,7 +7,7 @@ This product includes third-party material listed below.
 --------------------------------------------------------------------------
 vendor/index.htm, vendor/index.css, vendor/index.js, vendor/liveview.htm
 
-  WLED web interface, version 0.15.0
+  WLED web interface, version 16.0.1
   Copyright (c) 2016-present Christian Schwinne and individual WLED
   contributors
   Licensed under the EUPL v. 1.2 or later

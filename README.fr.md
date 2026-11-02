@@ -162,8 +162,10 @@ et signale toute divergence dans `/bridge/status`.
 
 ## Interface vendorisée
 
-`vendor/` contient l'UI officielle WLED 0.15.0, qui pilote sans problème un module en
-16.0.1 puisque les listes d'effets et de palettes viennent du pont. Deux modifications :
+`vendor/` contient l'UI officielle WLED **16.0.1**, prise dans `wled00/data/` à ce tag.
+La version de l'UI n'a pas à correspondre au firmware : les listes d'effets et de palettes
+viennent du pont, pas de la page, donc une UI plus ancienne pilote très bien un module plus
+récent. Deux modifications :
 
 ```
 index.js  : "ws://"+window.location.hostname+"/ws"
@@ -173,6 +175,13 @@ index.htm : bouton « Bridge » ajouté dans la barre du haut, après « Config 
 ```
 
 L'UI suppose d'être servie sur le port 80 et perdait le port dans l'URL WebSocket.
+
+WLED 16 a ajouté un bandeau de vérification de version qui lit `/json/cfg`, `/edit` et
+`/upload` et envoie des détails sur l'appareil à un service externe. Il se désactive de
+lui-même quand le module se déclare en mode point d'accès, ce qui est précisément le cas
+ici : rien n'est demandé, rien ne sort de la machine — vérifié en observant le panneau
+réseau sur un chargement complet. Le pont ne sert de toute façon aucun de ces trois
+endpoints.
 
 Le bouton « Bridge » ouvre `/bridge` ; la page `/bridge` a son propre lien de retour. Son
 icône `⇄` n'appartient pas à la police `WIcons` de WLED, qui ne contient que ses propres
