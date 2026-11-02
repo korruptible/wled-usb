@@ -12,7 +12,7 @@ struct Trigger {
         Trigger(key: "wake", pattern: "info", needsCalendar: false),
         Trigger(key: "unlock", pattern: "info", needsCalendar: false),
         Trigger(key: "lock", pattern: "info", needsCalendar: false),
-        Trigger(key: "app", pattern: "slack", needsCalendar: false),
+        Trigger(key: "app", pattern: "chat", needsCalendar: false),
         Trigger(key: "mesh", pattern: "urgent", needsCalendar: false),
         Trigger(key: "meeting", pattern: "call", needsCalendar: true),
     ]

@@ -3,16 +3,16 @@ set -euo pipefail
 
 usage() {
   cat >&2 <<'TXT'
-Usage: notify.sh <application> [titre] [motif]
+Usage: notify.sh <application> [title] [pattern]
 
-  application  nom affiché dans le journal, et clé des règles (ex. Slack, CI)
-  titre        texte court, facultatif
-  motif        force un motif : slack, message, urgent, call, info
+  application  name shown in the log, and the key rules match on (e.g. Slack, CI)
+  title        short text, optional
+  pattern      force a pattern: chat, message, urgent, call, info
 
-Exemples :
-  notify.sh CI "build cassé" urgent
-  notify.sh Slack "nouveau message"
-  make test || notify.sh Tests "échec" urgent
+Examples:
+  notify.sh CI "build broken" urgent
+  notify.sh Slack "new message"
+  make test || notify.sh Tests "failed" urgent
 TXT
   exit 2
 }

@@ -225,7 +225,7 @@ déclencheur s'active séparément dans le menu, et poste sur `/bridge/notify` c
 | --- | --- | --- |
 | Réveil du Mac | `NSWorkspace.didWakeNotification` | `info` |
 | Verrouillage / déverrouillage | `com.apple.screenIsLocked` / `…Unlocked` | `info` |
-| Une app surveillée démarre ou se ferme | `NSWorkspace.did{Launch,Terminate}Application` | `slack` |
+| Une app surveillée démarre ou se ferme | `NSWorkspace.did{Launch,Terminate}Application` | `chat` |
 | Tailscale ou NetBird tombe | balayage `getifaddrs` d'une adresse en `100.64/10` | `urgent` |
 | Réunion dans 5 minutes | EventKit | `call` |
 
@@ -242,7 +242,7 @@ L'app enregistre `wledusb://`, ce qui met le ruban à portée de n'importe quoi 
 une automatisation, un Stream Deck, ou l'action **Ouvrir l'URL** de Raccourcis.
 
 ```bash
-open "wledusb://notify?pattern=slack&title=Build%20termin%C3%A9&app=CI"
+open "wledusb://notify?pattern=chat&title=Build%20termin%C3%A9&app=CI"
 ```
 
 Paramètres : `pattern`, `title`, `app`, `priority`. C'est la même file que les
@@ -577,10 +577,9 @@ Deux conséquences, qui vont dans les deux sens :
 
 ## Licence et crédits
 
-Le projet est sous **EUPL v. 1.2 ou ultérieure**, comme WLED, puisqu'il redistribue
-l'interface web de WLED et des données extraites de ses sources. Voir `LICENSE` pour
-le texte et `NOTICE` pour le détail des composants tiers : UI WLED (EUPL-1.2),
-iro.js (MPL-2.0), rangetouch.js (MIT).
+Le projet est publié sous **EUPL v. 1.2 ou ultérieure**. Voir `LICENSE` pour le texte,
+et `NOTICE` pour le détail des composants tiers qu'il redistribue : l'interface web de
+WLED (EUPL-1.2), iro.js (MPL-2.0) et rangetouch.js (MIT).
 
 Les binaires de firmware ne sont pas versionnés. `firmware/*.bin` est exclu par
 `.gitignore` ; récupérer la version voulue sur la

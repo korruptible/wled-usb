@@ -203,7 +203,7 @@ separately from the menu and posts to `/bridge/notify` exactly as `notify.sh` wo
 | --- | --- | --- |
 | Mac wakes up | `NSWorkspace.didWakeNotification` | `info` |
 | Screen locked / unlocked | `com.apple.screenIsLocked` / `…Unlocked` | `info` |
-| A watched app starts or quits | `NSWorkspace.did{Launch,Terminate}Application` | `slack` |
+| A watched app starts or quits | `NSWorkspace.did{Launch,Terminate}Application` | `chat` |
 | Tailscale or NetBird goes down | `getifaddrs` sweep for a `100.64/10` address | `urgent` |
 | Meeting in 5 minutes | EventKit | `call` |
 
@@ -220,7 +220,7 @@ The app registers `wledusb://`, which puts the strip within reach of anything: a
 an automation, a Stream Deck, or the **Open URL** action in Shortcuts.
 
 ```bash
-open "wledusb://notify?pattern=slack&title=Build%20done&app=CI"
+open "wledusb://notify?pattern=chat&title=Build%20done&app=CI"
 ```
 
 Parameters: `pattern`, `title`, `app`, `priority`. It is the same queue as KDE Connect
@@ -551,10 +551,9 @@ Two things follow, and they cut both ways:
 
 ## Licence and credits
 
-This project is under the **EUPL v. 1.2 or later**, like WLED, because it redistributes
-WLED's web interface and data extracted from its sources. See `LICENSE` for the text and
-`NOTICE` for the third-party components: WLED UI (EUPL-1.2), iro.js (MPL-2.0),
-rangetouch.js (MIT).
+This project is released under the **EUPL v. 1.2 or later**. See `LICENSE` for the text,
+and `NOTICE` for the third-party components it redistributes: the WLED web interface
+(EUPL-1.2), iro.js (MPL-2.0) and rangetouch.js (MIT).
 
 Firmware binaries are not versioned. `firmware/*.bin` is excluded by `.gitignore`; get the
 version you want from the [WLED releases page](https://github.com/wled/WLED/releases) and

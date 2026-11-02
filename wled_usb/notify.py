@@ -21,14 +21,14 @@ DEFAULTS = {
     "ledMilliamps": 55,
     "baseMilliamps": 100,
     "patterns": {
-        "slack": {"color": [74, 168, 255], "leds": 20, "flashes": 3, "onMs": 220, "offMs": 150, "bri": 140},
+        "chat": {"color": [74, 168, 255], "leds": 20, "flashes": 3, "onMs": 220, "offMs": 150, "bri": 140},
         "message": {"color": [120, 255, 140], "leds": 20, "flashes": 2, "onMs": 240, "offMs": 160, "bri": 130},
         "urgent": {"color": [255, 40, 40], "leds": 30, "flashes": 5, "onMs": 160, "offMs": 110, "bri": 150},
         "call": {"color": [0, 230, 118], "leds": 30, "flashes": 8, "onMs": 180, "offMs": 140, "bri": 150},
         "info": {"color": [255, 180, 60], "leds": 16, "flashes": 2, "onMs": 260, "offMs": 180, "bri": 130},
     },
     "rules": [
-        {"app": "Slack", "pattern": "slack", "priority": 30},
+        {"app": "Slack", "pattern": "chat", "priority": 30},
         {"app": "Messenger", "pattern": "message", "priority": 10},
         {"app": "Signal", "pattern": "message", "priority": 15},
         {"app": "WhatsApp", "pattern": "message", "priority": 15},
@@ -36,6 +36,19 @@ DEFAULTS = {
     ],
     "ignore": [],
 }
+
+
+def _renamed(config):
+    patterns = config.get("patterns")
+    if not isinstance(patterns, dict) or "slack" not in patterns or "chat" in patterns:
+        return config
+    patterns["chat"] = patterns.pop("slack")
+    for rule in config.get("rules") or []:
+        if isinstance(rule, dict) and rule.get("pattern") == "slack":
+            rule["pattern"] = "chat"
+    if config.get("defaultPattern") == "slack":
+        config["defaultPattern"] = "chat"
+    return config
 
 
 @dataclass(order=True)
@@ -73,7 +86,7 @@ class Notifier:
             return merged
         if isinstance(stored, dict):
             merged.update(stored)
-        return merged
+        return _renamed(merged)
 
     def save(self, config=None):
         with self._lock:
