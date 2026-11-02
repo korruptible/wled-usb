@@ -17,7 +17,19 @@ vendor/index.htm, vendor/index.css, vendor/index.js, vendor/liveview.htm
     - index.htm: a "Bridge" button linking to /bridge was added to the tab bar;
     - index.js: the WebSocket fallback uses window.location.host instead of
       window.location.hostname, so that the bridge's port is kept.
-  index.css and liveview.htm are byte-for-byte identical to upstream v0.15.0.
+  index.css and liveview.htm are byte-for-byte identical to upstream.
+
+  To check every vendored copy yourself:
+
+    tag=v16.0.1
+    for f in index.htm index.css index.js liveview.htm iro.js rangetouch.js; do
+      curl -sL -o "/tmp/$f" \
+        "https://raw.githubusercontent.com/wled/WLED/$tag/wled00/data/$f"
+      diff "/tmp/$f" "vendor/$f"
+    done
+
+  Only index.htm (one line added) and index.js (one line changed) should
+  report a difference.
 
 --------------------------------------------------------------------------
 vendor/iro.js
@@ -27,6 +39,8 @@ vendor/iro.js
   Licensed under the Mozilla Public License 2.0
   https://github.com/jaames/iro.js
 
+  Taken unmodified from the WLED source tree, where it is bundled.
+
 --------------------------------------------------------------------------
 vendor/rangetouch.js
 
@@ -34,6 +48,8 @@ vendor/rangetouch.js
   Copyright (c) Sam Potts
   Licensed under the MIT License
   https://github.com/sampotts/rangetouch
+
+  Taken unmodified from the WLED source tree, where it is bundled.
 
 --------------------------------------------------------------------------
 data/wled-data.json
