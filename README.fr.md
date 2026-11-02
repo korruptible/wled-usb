@@ -202,13 +202,89 @@ perd aucun réglage. Les messages du terminal sont en anglais uniquement.
 ## Application macOS
 
 `app/` produit un `WLED USB.app` autonome : il embarque son propre CPython, lance le
-pont, capte le son système et installe un menu dans la barre des tâches. `./app/build.sh`
-télécharge un interpréteur relocalisable en vérifiant son empreinte, compile le Swift et
-signe le bundle.
+pont, capte le son système et installe un menu dans la barre des tâches. Rien à installer
+à côté — ni Python, ni environnement virtuel, ni Homebrew.
 
-La signature utilise un certificat auto-signé nommé `WLED USB Dev` (surchargé par
-`WLED_SIGN_IDENTITY`). Sans certificat, le build retombe sur une signature à la volée et
-macOS redemande l'autorisation audio à chaque reconstruction. Apple Silicon uniquement.
+**Prérequis :** un Mac Apple Silicon sous macOS 14.2 ou plus récent, et les outils en
+ligne de commande Xcode pour `swiftc` (`xcode-select --install`).
+
+### Compiler et lancer
+
+```bash
+./app/build.sh
+```
+
+La première compilation télécharge un CPython relocalisable (27 Mo), vérifie son
+empreinte SHA-256, y installe pyserial et esptool, compile le Swift et signe le bundle.
+Les suivantes réutilisent l'interpréteur et prennent quelques secondes. Le résultat est
+`app/build/WLED USB.app`, environ 90 Mo.
+
+```bash
+open "app/build/WLED USB.app"
+```
+
+Elle n'a ni fenêtre ni icône dans le Dock au départ : cherchez la mascotte dans la
+**barre des menus**, à droite. Le menu affiche l'état du pont, celui du son et un
+vumètre.
+
+Au premier lancement :
+
+1. **Ouvrir l'interface** depuis le menu — l'UI WLED s'ouvre dans une fenêtre, et c'est
+   seulement à ce moment que l'app apparaît dans le Dock.
+2. **Activer le son de l'ordinateur** depuis le menu — macOS demande l'autorisation
+   *enregistrement audio du système* la première fois. La capture ne démarre jamais seule.
+3. Cocher un déclencheur sous **Déclencheurs** ne demande le calendrier que pour celui
+   des réunions.
+
+Les réglages vivent dans `~/Library/Application Support/WLED USB/` : `audio.json`,
+`ui.json`, `presets.json` et `notifications.json`. Supprimer ce dossier remet l'app à
+zéro. Deux comportements se règlent hors de l'interface, avec des défauts adaptés à une
+installation neuve :
+
+```bash
+defaults write fr.wledusb.app listen "localhost,tailscale"
+defaults write fr.wledusb.app kdeconnect -bool true
+```
+
+### Signature
+
+Le build signe avec un certificat auto-signé nommé `WLED USB Dev`, et retombe sur une
+signature à la volée avec un avertissement s'il n'en trouve pas. Ça marche, mais
+l'identité du bundle change à chaque reconstruction, donc **macOS redemande
+l'autorisation audio à chaque fois**. Cinq minutes bien employées.
+
+Créez-en un dans *Certificate Assistant*, qui n'est pas dans Applications :
+
+```bash
+open "/System/Library/CoreServices/Certificate Assistant.app"
+```
+
+Choisissez *Créer un certificat*, nommez-le exactement `WLED USB Dev`, type d'identité
+*Racine auto-signée*, type de certificat **Signature de code**. Un certificat auto-signé
+n'est pas approuvé pour signer tant que vous ne le dites pas, ce qui demande votre mot de
+passe :
+
+```bash
+sudo security add-trusted-cert -d -r trustRoot -p codeSign -k /Library/Keychains/System.keychain ~/Desktop/wled-cert.pem
+```
+
+Exportez-le d'abord vers ce chemin :
+
+```bash
+security find-certificate -c "WLED USB Dev" -p > ~/Desktop/wled-cert.pem
+```
+
+Puis contrôlez que c'est pris :
+
+```bash
+security find-identity -v -p codesigning
+```
+
+`WLED_SIGN_IDENTITY` surcharge le nom si vous avez déjà votre propre certificat.
+
+Certificate Assistant demande une adresse e-mail et l'inscrit dans le certificat, qui se
+retrouve dans le bundle signé. Elle reste sur votre machine tant que vous ne donnez l'app
+à personne ; prenez une adresse que vous accepteriez de voir si cela arrivait.
 
 ## Déclencheurs macOS
 
