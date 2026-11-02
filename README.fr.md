@@ -1,7 +1,18 @@
 # wled-usb — piloter WLED en USB, sans WiFi
 
+[![Licence](https://img.shields.io/badge/licence-EUPL--1.2-blue.svg)](LICENSE)
+![WLED](https://img.shields.io/badge/WLED-16.0.1-00b894.svg)
+![Pont](https://img.shields.io/badge/pont-Python%203.10%2B-3776ab.svg)
+![App](https://img.shields.io/badge/app-macOS%2014.2%2B%20Apple%20Silicon-000000.svg)
+
 Pilote un module WLED **uniquement par USB**, sans aucun accès réseau au module,
 et sert l'**interface web officielle de WLED** en local.
+
+- **Rien sur le réseau.** Le module n'y entre jamais ; tout passe par le câble.
+- **La vraie interface WLED**, servie en local — effets, palettes, segments, presets, aperçu live.
+- **Réaction au son** de l'ordinateur, sans micro et sans pilote.
+- **Flash du firmware** par le même câble, le pont s'effaçant devant esptool.
+- **Une app macOS de barre des tâches** qui embarque son Python : rien à installer à côté.
 
 *[English version](README.md) · l'interface elle-même est bilingue (anglais/français)
 et suit la langue de l'ordinateur.*
@@ -13,6 +24,29 @@ Le pont traduit les requêtes HTTP de l'UI officielle vers ce canal série.
 Développé et testé sur WLED 16.0.1, ESP32-PICO-D4, 144 LEDs, macOS 27 sur Apple
 Silicon. Le pont lui-même n'a rien de spécifique à macOS ; l'application de barre des
 menus décrite plus bas, si.
+
+## Sommaire
+
+Compiler et lancer l'app macOS, c'est dans [Application macOS](#application-macos) — c'est loin.
+
+- [Installation](#installation)
+- [Ce qui fonctionne](#ce-qui-fonctionne)
+- [Ce qui n'est pas possible, et pourquoi](#ce-qui-nest-pas-possible-et-pourquoi)
+- [Mise à jour du firmware par USB](#mise-à-jour-du-firmware-par-usb)
+- [Données statiques](#données-statiques)
+- [Interface vendorisée](#interface-vendorisée)
+- [Langue](#langue)
+- [Application macOS](#application-macos)
+  - [Compiler et lancer](#compiler-et-lancer)
+  - [Signature](#signature)
+- [Déclencheurs macOS](#déclencheurs-macos)
+- [Son du Mac vers les LEDs](#son-du-mac-vers-les-leds)
+- [Streaming audio-réactif (LedFx, Adalight)](#streaming-audio-réactif-ledfx-adalight)
+- [Notifications](#notifications)
+- [Architecture](#architecture)
+- [Sécurité](#sécurité)
+- [Comment ce projet a été écrit](#comment-ce-projet-a-été-écrit)
+- [Licence et crédits](#licence-et-crédits)
 
 ## Installation
 
@@ -103,6 +137,7 @@ le port pendant l'opération puis le reprend.
 Images officielles : `WLED_<version>_ESP32.bin` dans les releases GitHub du projet WLED.
 Vérifier le `sha256` annoncé par l'API GitHub avant d'écrire.
 
+> [!IMPORTANT]
 > Après un flash vers une autre version de WLED, régénérez la base statique (ci-dessous),
 > sinon les noms d'effets seront décalés. La page `/bridge` signale l'écart.
 
@@ -111,6 +146,7 @@ Vérifier le `sha256` annoncé par l'API GitHub avant d'écrire.
 Avant de reflasher, garder de quoi revenir en arrière : une image intégrale du flash,
 l'état du module (`/json`) et la base d'effets de la version en place.
 
+> [!CAUTION]
 > `backup/` est **exclu du dépôt** par `.gitignore`, et doit le rester. Une image
 > intégrale contient la partition NVS, où l'ESP32 stocke le SSID et la clé Wi-Fi en
 > clair, ainsi que l'adresse MAC du module. C'est une sauvegarde personnelle, pas un
@@ -421,6 +457,7 @@ En flux à 25 images/s, la cadence du ruban retombe mesurément à 17 images/s :
 une trame met 38 ms à passer, et l'ESP32 partage ce temps avec son propre affichage.
 C'est fluide à l'œil, mais c'est le plafond réel de ce débit.
 
+> [!WARNING]
 > Changer de débit en plein flux est dangereux. WLED lit `0xB0`–`0xB7` comme des
 > commandes dès que son automate est entre deux trames ; après une désynchronisation,
 > un simple octet de pixel vaut une commande. C'est arrivé pendant les essais : le
@@ -632,6 +669,7 @@ defaults write fr.wledusb.app listen "localhost,tailscale"
 Un avertissement s'affiche si une adresse liée se trouve être routable publiquement. Les
 plages de Tailscale (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) et de NetBird ne le sont pas.
 
+> [!CAUTION]
 > **Le pont n'a aucune authentification.** Tout ce qui atteint le port peut piloter
 > les LEDs et flasher le firmware. Sur un réseau maillé, cela vaut pour chaque pair,
 > et pour tout appareil avec qui la machine est partagée.

@@ -1,7 +1,18 @@
 # wled-usb — control WLED over USB serial, without WiFi
 
+[![Licence](https://img.shields.io/badge/licence-EUPL--1.2-blue.svg)](LICENSE)
+![WLED](https://img.shields.io/badge/WLED-16.0.1-00b894.svg)
+![Bridge](https://img.shields.io/badge/bridge-Python%203.10%2B-3776ab.svg)
+![App](https://img.shields.io/badge/app-macOS%2014.2%2B%20Apple%20Silicon-000000.svg)
+
 Drive a **WLED** LED controller over **USB serial only**, with **no network access to the
 device**, and serve the **official WLED web interface** locally.
+
+- **Nothing on the network.** The module never joins one; everything goes down the cable.
+- **The real WLED interface**, served locally — effects, palettes, segments, presets, live preview.
+- **Audio-reactive** from your computer's own output, no microphone, no driver.
+- **Firmware flashing** over the same cable, with the bridge stepping aside for esptool.
+- **A macOS menu bar app** that carries its own Python, so there is nothing to install beside it.
 
 Useful when the module must not join a network: a corporate or guest WiFi you cannot put
 an IoT device on, an air-gapped bench, or simply not wanting one more ESP32 exposed at
@@ -18,6 +29,30 @@ bridge translates the official UI's HTTP requests onto that channel.
 Developed and tested against WLED 16.0.1 on an ESP32-PICO-D4, 144 LEDs, macOS 27 on Apple
 Silicon. The bridge itself is plain Python and has nothing macOS-specific; the menu bar
 app described below does.
+
+## Contents
+
+Building and running the macOS app is under [macOS menu bar app](#macos-menu-bar-app) — it is a long way down.
+
+- [Install](#install)
+- [What works](#what-works)
+- [What is not possible, and why](#what-is-not-possible-and-why)
+- [Firmware update over USB](#firmware-update-over-usb)
+- [Static data](#static-data)
+- [Vendored interface](#vendored-interface)
+- [Language](#language)
+- [macOS menu bar app](#macos-menu-bar-app)
+  - [Build and run](#build-and-run)
+  - [Signing](#signing)
+  - [Triggers](#triggers)
+  - [URL scheme](#url-scheme)
+- [Computer audio to the LEDs](#computer-audio-to-the-leds)
+- [Audio-reactive streaming (LedFx, Adalight)](#audio-reactive-streaming-ledfx-adalight)
+- [Notifications](#notifications)
+- [Architecture](#architecture)
+- [Security](#security)
+- [How this was built](#how-this-was-built)
+- [Licence and credits](#licence-and-credits)
 
 ## Install
 
@@ -91,6 +126,7 @@ The `/bridge` page uploads a `.bin` and runs esptool with the serial port releas
 the duration, streaming its log back. By default only the **application** is written at
 `0x10000`, so bootloader, partition table, filesystem and configuration survive.
 
+> [!IMPORTANT]
 > The bundled effect database must match the firmware you flash, or effect names will be
 > off by one. The `/bridge` page reports the mismatch.
 
@@ -99,6 +135,7 @@ the duration, streaming its log back. By default only the **application** is wri
 Before reflashing, keep a way back: a full flash image, the device state (`/json`) and
 the effect database for the version in place.
 
+> [!CAUTION]
 > `backup/` is **excluded from the repository** by `.gitignore`, and should stay that
 > way. A full image contains the NVS partition, where the ESP32 stores the WiFi SSID and
 > key in clear text, plus the module's MAC address. It is a personal backup, not a
@@ -388,6 +425,7 @@ Streaming at 25 frames/s, the strip's own rate measurably drops to 17: at 115200
 takes 38 ms to arrive, and the ESP32 shares that time with its own output. It looks smooth,
 but it is the real ceiling at that rate.
 
+> [!WARNING]
 > Changing baud rate mid-stream is dangerous. WLED reads `0xB0`–`0xB7` as commands as soon
 > as its state machine sits between frames; after a desynchronisation, an ordinary pixel
 > byte becomes a command. It happened during testing: the module ended up at 460800 without
@@ -597,6 +635,7 @@ defaults write fr.wledusb.app listen "localhost,tailscale"
 A warning is printed if a bound address turns out to be publicly routable. Tailscale's
 ranges (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) and NetBird's are not.
 
+> [!CAUTION]
 > **The bridge has no authentication.** Anything that reaches the port can drive the LEDs
 > and flash the firmware. On a mesh network that means every peer, and every device the
 > machine is shared with.
