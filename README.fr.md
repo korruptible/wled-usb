@@ -169,12 +169,12 @@ et signale toute divergence dans `/bridge/status`.
 index.js  : "ws://"+window.location.hostname+"/ws"
          →  "ws://"+window.location.host+"/ws"
 
-index.htm : bouton « Pont » ajouté dans la barre du haut, après « Config »
+index.htm : bouton « Bridge » ajouté dans la barre du haut, après « Config »
 ```
 
 L'UI suppose d'être servie sur le port 80 et perdait le port dans l'URL WebSocket.
 
-Le bouton « Pont » ouvre `/bridge` ; la page `/bridge` a son propre lien de retour. Son
+Le bouton « Bridge » ouvre `/bridge` ; la page `/bridge` a son propre lien de retour. Son
 icône `⇄` n'appartient pas à la police `WIcons` de WLED, qui ne contient que ses propres
 glyphes : `public/skin.css` la repasse donc en police courante. Ce fichier est le point
 d'entrée prévu par WLED pour personnaliser le thème, servi tel quel par le pont.

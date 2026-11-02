@@ -8,7 +8,13 @@ _PATH = pathlib.Path(__file__).resolve().parent.parent / "data" / "wled-data.jso
 
 class StaticData:
     def __init__(self, path=_PATH):
-        raw = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+        try:
+            raw = json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+        except OSError as exc:
+            raise SystemExit(
+                f"effect database unreadable at {path}: {exc}\n"
+                "regenerate it with: python tools/gen-data.py v16.0.1"
+            ) from exc
         self.version = raw["version"]
         self.effects = raw["effects"]
         self.fxdata = raw["fxdata"]

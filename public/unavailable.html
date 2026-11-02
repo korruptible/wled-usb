@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Non disponible en USB</title>
+<title>Not available over USB</title>
 <style>
   :root { color-scheme: dark; }
   body { margin:0; min-height:100vh; display:grid; place-items:center;
@@ -15,20 +15,50 @@
 </style>
 </head>
 <body>
-<main>
-  <h1>Cette page n'est pas accessible par USB</h1>
-  <p>Le firmware WLED n'expose que l'<strong>API d'état</strong> sur le port série
-     (<code>deserializeState</code>). Les pages de réglages, l'éditeur de fichiers et
-     la mise à jour OTA passent uniquement par son serveur HTTP, inaccessible ici
-     puisque le module n'est pas sur le réseau.</p>
-  <p>Ce qui reste possible depuis le pont :</p>
-  <ul>
-    <li>tout le contrôle temps réel (couleurs, effets, palettes, segments, presets) ;</li>
-    <li>la <strong>mise à jour du firmware</strong> par le bootloader série, via
-        <a href="/bridge">la page du pont</a> ;</li>
-    <li>la configuration durable, en reflashant une image qui l'embarque.</li>
-  </ul>
-  <p><a href="/">← Retour à l'interface</a></p>
-</main>
+<main id="page"></main>
+<script>
+const TEXT = {
+  en: {
+    title: "Not available over USB",
+    heading: "This page is not reachable over USB",
+    intro: "WLED's firmware only exposes the <strong>state API</strong> on the serial port (<code>deserializeState</code>). The settings pages, the file editor and OTA updates go through its HTTP server only, which is out of reach here since the module is on no network.",
+    lead: "What the bridge can still do:",
+    items: [
+      "all real-time control (colours, effects, palettes, segments, presets);",
+      "<strong>firmware updates</strong> through the serial bootloader, from <a href=\"/bridge\">the bridge page</a>;",
+      "persistent configuration, by flashing an image that carries it.",
+    ],
+    back: "← Back to the interface",
+  },
+  fr: {
+    title: "Non disponible en USB",
+    heading: "Cette page n'est pas accessible par USB",
+    intro: "Le firmware WLED n'expose que l'<strong>API d'état</strong> sur le port série (<code>deserializeState</code>). Les pages de réglages, l'éditeur de fichiers et la mise à jour OTA passent uniquement par son serveur HTTP, inaccessible ici puisque le module n'est pas sur le réseau.",
+    lead: "Ce qui reste possible depuis le pont :",
+    items: [
+      "tout le contrôle temps réel (couleurs, effets, palettes, segments, presets) ;",
+      "la <strong>mise à jour du firmware</strong> par le bootloader série, via <a href=\"/bridge\">la page du pont</a> ;",
+      "la configuration durable, en reflashant une image qui l'embarque.",
+    ],
+    back: "← Retour à l'interface",
+  },
+};
+
+function render(lang) {
+  const t = TEXT[lang] || TEXT.en;
+  document.documentElement.lang = TEXT[lang] ? lang : "en";
+  document.title = t.title;
+  document.getElementById("page").innerHTML =
+    `<h1>${t.heading}</h1><p>${t.intro}</p><p>${t.lead}</p>` +
+    `<ul>${t.items.map((i) => `<li>${i}</li>`).join("")}</ul>` +
+    `<p><a href="/">${t.back}</a></p>`;
+}
+
+render("en");
+fetch("/bridge/ui")
+  .then((r) => r.json())
+  .then((d) => render(d.language))
+  .catch(() => {});
+</script>
 </body>
 </html>

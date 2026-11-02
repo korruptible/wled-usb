@@ -192,6 +192,14 @@ class Notifier:
             else:
                 self._record(notification, "played")
 
+    def _segment_length(self, segment):
+        stop = segment.get("stop")
+        if stop:
+            return int(stop) - int(segment.get("start", 0))
+        cached = self.bridge.cached() or {}
+        count = ((cached.get("info") or {}).get("leds") or {}).get("count")
+        return int(count) if count else 0
+
     def budget(self, leds, colour, brightness):
         per_led = self.config.get("ledMilliamps", 55)
         base = self.config.get("baseMilliamps", 100)
@@ -219,7 +227,9 @@ class Notifier:
         segments = snapshot.get("seg") or [{}]
         main = snapshot.get("mainseg", 0)
         current = segments[main] if main < len(segments) else segments[0]
-        total = current.get("stop", 144) - current.get("start", 0)
+        total = self._segment_length(current)
+        if total <= 0:
+            return
 
         colour = pattern.get("color", [255, 180, 60])
         span = pattern.get("leds") or total

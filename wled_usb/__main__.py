@@ -21,8 +21,9 @@ from .presets import PresetStore
 from .ui import UiSettings
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-PREFERRED = ("usbserial", "usbmodem", "wchusbserial", "slab_usbtouart", "cu.usb")
-IGNORED = ("bluetooth", "debug-console")
+PREFERRED = ("usbserial", "usbmodem", "wchusbserial", "slab_usbtouart", "cu.usb",
+             "ttyusb", "ttyacm")
+IGNORED = ("bluetooth", "debug-console", "ttys")
 
 
 def candidate_ports():

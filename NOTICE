@@ -13,7 +13,7 @@ vendor/index.htm, vendor/index.css, vendor/index.js, vendor/liveview.htm
   Licensed under the EUPL v. 1.2 or later
   https://github.com/wled/WLED
 
-  vendor/index.htm is modified: a "Pont" button linking to /bridge was added
+  vendor/index.htm is modified: a "Bridge" button linking to /bridge was added
   to the tab bar. The other files are unmodified.
 
 --------------------------------------------------------------------------

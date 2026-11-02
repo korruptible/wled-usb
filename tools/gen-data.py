@@ -225,7 +225,7 @@ def main(argv=None):
                         help="tag WLED à télécharger (défaut v0.15.0)")
     parser.add_argument("--src", help="dossier de sources déjà présentes (ignore le tag)")
     parser.add_argument("--fastled", default="3.6.0", help="tag FastLED (défaut 3.6.0)")
-    parser.add_argument("--out", default=str(pathlib.Path(__file__).parent / "data" / "wled-data.json"))
+    parser.add_argument("--out", default=str(pathlib.Path(__file__).resolve().parent.parent / "data" / "wled-data.json"))
     args = parser.parse_args(argv)
 
     with tempfile.TemporaryDirectory(prefix="wled-src-") as scratch:
