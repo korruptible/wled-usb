@@ -38,6 +38,7 @@ The serial port is detected automatically. Useful options:
 | `--http-port 8723` | HTTP port (default 8723) |
 | `--listen localhost` | listen addresses (default: loopback only) |
 | `--lang en` | interface language on first run |
+| `--kdeconnect` | watch phone notifications through KDE Connect (off by default) |
 | `--poll 2.0` | state refresh interval, in seconds |
 | `--baud 115200` | serial baud rate |
 
@@ -330,26 +331,10 @@ The strip doubles as an indicator: when a notification arrives it interrupts the
 scene, plays a coloured pattern, then **restores the previous state exactly** — power,
 brightness, effect, palette, segment bounds, colours.
 
-### Sources
+### Anything, over HTTP
 
-**KDE Connect** — phone notifications relayed by KDE Connect are read on the private D-Bus
-that its macOS application starts for itself. The bridge finds the bus on its own by
-probing `/tmp/dbus-*` sockets for the name `org.kde.kdeconnect`, then polls
-`activeNotifications` every 2 seconds and reacts to new entries.
-
-It reads only `appName` and `title`. **Message bodies are never read, logged or sent
-anywhere.** The log stays in memory and disappears when the bridge stops.
-
-Requires `gdbus` (`brew install glib`) and KDE Connect paired with the device. Disable it
-with `--no-kdeconnect`.
-
-**Scripts** — an HTTP API and a shell script, to fire from anything:
-
-```bash
-./notify.sh CI "build broken" urgent
-./notify.sh Slack "new message"
-make test || ./notify.sh Tests "failed" urgent
-```
+The general way in is one endpoint, so whatever can make an HTTP request can light the
+strip — a CI job, a cron, a Makefile, a Stream Deck:
 
 ```bash
 curl -X POST http://127.0.0.1:8723/bridge/notify \
@@ -357,7 +342,35 @@ curl -X POST http://127.0.0.1:8723/bridge/notify \
      -d '{"app":"Jenkins","title":"deploy done","pattern":"info"}'
 ```
 
-`WLED_USB_URL` changes the address `notify.sh` targets.
+`notify.sh` wraps that for shell use, and `WLED_USB_URL` changes the address it targets:
+
+```bash
+./notify.sh CI "build broken" urgent
+./notify.sh Slack "new message"
+make test || ./notify.sh Tests "failed" urgent
+```
+
+### Optional: phone notifications through KDE Connect
+
+Off by default, and useful only if you already run KDE Connect. Enable it with
+`--kdeconnect`.
+
+Notifications relayed by KDE Connect are read on the private D-Bus session its desktop
+application starts for itself. The bridge looks for that session on its own, probing the
+usual socket locations (`/tmp/dbus-*`, `/run/user/*/bus`) for the name
+`org.kde.kdeconnect`, then polls `activeNotifications` every 2 seconds and reacts to new
+entries. `--kdeconnect-bus` gives an explicit address instead, and
+`DBUS_SESSION_BUS_ADDRESS` is honoured when set.
+
+It reads only `appName` and `title`. **Message bodies are never read, logged or sent
+anywhere.** The log stays in memory and disappears when the bridge stops.
+
+Requires `gdbus` — `brew install glib` on macOS, usually already present on Linux — and
+KDE Connect paired with the phone. The menu bar app leaves it off unless asked:
+
+```bash
+defaults write fr.wledusb.app kdeconnect -bool true
+```
 
 ### Patterns and rules
 
@@ -424,7 +437,7 @@ wled_usb/listen.py      listen address resolution (localhost, Tailscale, NetBird
 wled_usb/ui.py          shared interface language preference
 wled_usb/ws.py          minimal WebSocket framing
 wled_usb/notify.py      notification engine: patterns, queue, budget, restore
-wled_usb/kdeconnect.py  KDE Connect source (bus discovery, D-Bus polling)
+wled_usb/kdeconnect.py  optional KDE Connect source (bus discovery, D-Bus polling)
 app/Sources/            macOS app: audio capture, FFT, menu, triggers
 public/                 the bridge's own pages (/bridge, unavailable page)
 vendor/                 redistributed WLED web interface

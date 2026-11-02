@@ -33,6 +33,7 @@ Le port série est détecté automatiquement. Options utiles :
 | `--http-port 8723` | port HTTP (défaut 8723) |
 | `--listen localhost` | adresses d'écoute (défaut : boucle locale seulement) |
 | `--lang fr` | langue de l'interface au premier lancement |
+| `--kdeconnect` | notifications du téléphone via KDE Connect (désactivé par défaut) |
 | `--poll 2.0` | intervalle de rafraîchissement de l'état, en secondes |
 | `--baud 115200` | débit série |
 
@@ -358,27 +359,10 @@ Le bandeau sert d'indicateur : à l'arrivée d'une notification, il interrompt l
 en cours, joue un motif coloré, puis **restaure exactement l'état précédent**
 (alimentation, luminosité, effet, palette, bornes de segment, couleurs).
 
-### Sources
+### N'importe quoi, par HTTP
 
-**KDE Connect** — les notifications de votre téléphone, relayées par KDE Connect, sont
-lues sur le bus D-Bus privé que son application macOS lance pour elle-même. Le pont
-découvre le bus tout seul en sondant les sockets `/tmp/dbus-*` à la recherche du nom
-`org.kde.kdeconnect`, puis interroge `activeNotifications` toutes les 2 secondes et
-réagit aux nouvelles entrées.
-
-Il ne lit que `appName` et `title`. **Le corps des messages n'est jamais lu, ni journalisé,
-ni envoyé nulle part.** Le journal reste en mémoire : il disparaît à l'arrêt du pont.
-
-Prérequis : `gdbus` (`brew install glib`) et KDE Connect appairé à l'appareil.
-Désactivable avec `--no-kdeconnect`.
-
-**Scripts** — une API HTTP et un script shell, pour déclencher depuis n'importe quoi :
-
-```bash
-./notify.sh CI "build cassé" urgent
-./notify.sh Slack "nouveau message"
-make test || ./notify.sh Tests "échec" urgent
-```
+La voie générale, c'est un seul endpoint : tout ce qui sait faire une requête HTTP peut
+allumer le bandeau — un job de CI, une cron, un Makefile, un Stream Deck :
 
 ```bash
 curl -X POST http://127.0.0.1:8723/bridge/notify \
@@ -386,7 +370,35 @@ curl -X POST http://127.0.0.1:8723/bridge/notify \
      -d '{"app":"Jenkins","title":"deploy terminé","pattern":"info"}'
 ```
 
-`WLED_USB_URL` change l'adresse visée par `notify.sh`.
+`notify.sh` l'enrobe pour le shell, et `WLED_USB_URL` change l'adresse visée :
+
+```bash
+./notify.sh CI "build cassé" urgent
+./notify.sh Slack "nouveau message"
+make test || ./notify.sh Tests "échec" urgent
+```
+
+### Optionnel : les notifications du téléphone via KDE Connect
+
+Désactivé par défaut, et utile seulement si vous utilisez déjà KDE Connect. Activation
+avec `--kdeconnect`.
+
+Les notifications relayées par KDE Connect sont lues sur la session D-Bus privée que son
+application de bureau lance pour elle-même. Le pont la trouve tout seul en sondant les
+emplacements habituels (`/tmp/dbus-*`, `/run/user/*/bus`) à la recherche du nom
+`org.kde.kdeconnect`, puis interroge `activeNotifications` toutes les 2 secondes et réagit
+aux nouvelles entrées. `--kdeconnect-bus` impose une adresse explicite, et
+`DBUS_SESSION_BUS_ADDRESS` est honorée si elle est définie.
+
+Il ne lit que `appName` et `title`. **Le corps des messages n'est jamais lu, ni journalisé,
+ni envoyé nulle part.** Le journal reste en mémoire : il disparaît à l'arrêt du pont.
+
+Prérequis : `gdbus` — `brew install glib` sur macOS, souvent déjà là sous Linux — et KDE
+Connect appairé au téléphone. L'app de la barre des tâches le laisse éteint sauf demande :
+
+```bash
+defaults write fr.wledusb.app kdeconnect -bool true
+```
 
 ### Motifs et règles
 
@@ -455,7 +467,7 @@ wled_usb/listen.py      résolution des adresses d'écoute (localhost, Tailscale
 wled_usb/ui.py          préférence de langue partagée par la page et le menu
 wled_usb/ws.py          cadrage WebSocket minimal
 wled_usb/notify.py      moteur de notifications : motifs, file, budget, restauration
-wled_usb/kdeconnect.py  source KDE Connect (découverte du bus, veille D-Bus)
+wled_usb/kdeconnect.py  source KDE Connect optionnelle (découverte du bus, veille D-Bus)
 app/Sources/            application macOS : capture audio, FFT, menu, déclencheurs
 public/                 pages propres au pont (/bridge, page d'indisponibilité)
 vendor/                 interface web WLED redistribuée

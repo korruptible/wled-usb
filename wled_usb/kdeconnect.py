@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import glob
+import os
 import re
 import shutil
 import subprocess
@@ -16,16 +17,18 @@ NOTIFICATION_IFACE = "org.kde.kdeconnect.device.notifications.notification"
 
 NODE = re.compile(r"^\s*node\s+(\S+)\s*\{", re.M)
 QUOTED = re.compile(r"'((?:[^'\\]|\\.)*)'")
-FALLBACK_GDBUS = "/opt/homebrew/bin/gdbus"
+GDBUS_BINARIES = ("gdbus", "/opt/homebrew/bin/gdbus", "/usr/local/bin/gdbus",
+                  "/opt/local/bin/gdbus", "/usr/bin/gdbus")
+BUS_GLOBS = ("/tmp/dbus-*", "/run/user/*/bus", "/var/run/user/*/bus")
 
 
 class KdeConnectSource:
-    def __init__(self, notifier, interval=2.0):
+    def __init__(self, notifier, interval=2.0, address=None):
         self.notifier = notifier
         self.interval = interval
-        self.gdbus = shutil.which("gdbus") or (
-            FALLBACK_GDBUS if shutil.which(FALLBACK_GDBUS) else None
-        )
+        self.address = address or os.environ.get("DBUS_SESSION_BUS_ADDRESS")
+        self.gdbus = next((shutil.which(name) for name in GDBUS_BINARIES
+                           if shutil.which(name)), None)
         self.bus = None
         self.devices = []
         self.detail = "not started"
@@ -35,7 +38,7 @@ class KdeConnectSource:
 
     def start(self):
         if not self.gdbus:
-            self.detail = "gdbus introuvable (installez glib : brew install glib)"
+            self.detail = "gdbus not found (install glib, e.g. brew install glib)"
             return
         threading.Thread(target=self._loop, name="wled-kdeconnect", daemon=True).start()
 
@@ -54,7 +57,7 @@ class KdeConnectSource:
         try:
             done = subprocess.run(
                 [self.gdbus, *args],
-                env={"DBUS_SESSION_BUS_ADDRESS": f"unix:path={address}", "PATH": "/usr/bin:/bin"},
+                env={"DBUS_SESSION_BUS_ADDRESS": address, "PATH": "/usr/bin:/bin"},
                 capture_output=True,
                 text=True,
                 timeout=timeout,
@@ -63,8 +66,16 @@ class KdeConnectSource:
             return None
         return done.stdout if done.returncode == 0 else None
 
+    def _candidates(self):
+        if self.address:
+            return [self.address]
+        found = []
+        for pattern in BUS_GLOBS:
+            found.extend(f"unix:path={path}" for path in sorted(glob.glob(pattern)))
+        return found
+
     def _find_bus(self):
-        for socket in sorted(glob.glob("/tmp/dbus-*")):
+        for socket in self._candidates():
             names = self._run(socket, [
                 "call", "--session", "--dest", "org.freedesktop.DBus",
                 "--object-path", "/org/freedesktop/DBus",
@@ -107,7 +118,7 @@ class KdeConnectSource:
             if not self.bus:
                 self.bus = self._find_bus()
                 if not self.bus:
-                    self.detail = "KDE Connect introuvable sur le bus D-Bus"
+                    self.detail = "KDE Connect not found on any D-Bus session"
                     continue
 
             devices = self._list_devices()

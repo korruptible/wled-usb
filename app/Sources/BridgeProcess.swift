@@ -54,6 +54,9 @@ final class BridgeProcess {
             "--ui-config", support.appendingPathComponent("ui.json").path,
             "--lang", L10n.systemLanguage(),
         ]
+        if UserDefaults.standard.bool(forKey: "kdeconnect") {
+            task.arguments?.append("--kdeconnect")
+        }
         var environment = ProcessInfo.processInfo.environment
         environment["PYTHONPATH"] = bridge.path
         environment["PYTHONDONTWRITEBYTECODE"] = "1"

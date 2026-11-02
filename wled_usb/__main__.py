@@ -64,8 +64,10 @@ def main(argv=None):
     parser.add_argument("--chip", default="esp32", help="esptool chip target (default esp32)")
     parser.add_argument("--presets", default=str(ROOT / "data" / "presets.json"))
     parser.add_argument("--notifications", default=str(ROOT / "data" / "notifications.json"))
-    parser.add_argument("--no-kdeconnect", action="store_true",
-                        help="do not watch KDE Connect notifications")
+    parser.add_argument("--kdeconnect", action="store_true",
+                        help="watch phone notifications relayed by KDE Connect (off by default)")
+    parser.add_argument("--kdeconnect-bus",
+                        help="explicit D-Bus address, instead of probing for one")
     parser.add_argument("--poll", type=float, default=2.0, help="state refresh interval, in seconds")
     parser.add_argument("--audio-stdin", action="store_true",
                         help="read audio band frames on standard input")
@@ -104,8 +106,8 @@ def main(argv=None):
                         config_path=args.audio_config)
     notifier.audio = audio
     sources = {}
-    if not args.no_kdeconnect:
-        sources["kdeconnect"] = KdeConnectSource(notifier)
+    if args.kdeconnect:
+        sources["kdeconnect"] = KdeConnectSource(notifier, address=args.kdeconnect_bus)
 
     link.start()
     bridge.start()
