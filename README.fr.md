@@ -422,12 +422,19 @@ et `quietHours` permet de museler le bandeau sur une plage horaire.
 ### Budget de courant
 
 **À lire si vos LEDs sont alimentées par le microcontrôleur.** Le limiteur de courant
-de WLED (*Automatic Brightness Limiter*) vaut 2000 mA par défaut, ce qu'une
-alimentation USB ne fournit pas. Allumer les 144 LEDs en couleur vive fait chuter la
-tension et **le module redémarre** — ce n'est pas propre aux notifications, toute scène
+de WLED (*Automatic Brightness Limiter*) vaut 2000 mA par défaut, bien au-delà de ce
+qu'un port USB fournit. Demander plus que ce que l'alimentation peut donner fait chuter
+la tension et **le module redémarre** — rien à voir avec les notifications, toute scène
 vive en plein bandeau le provoque.
 
-Relevés sur un bandeau de 144 LEDs alimenté en USB :
+Calculez votre propre plafond plutôt que de reprendre les chiffres d'un autre. En ordre
+de grandeur, une LED RVB tire jusqu'à environ 55 mA en blanc plein, le contrôleur lui-même
+consomme autour de 100 mA au repos, et la consommation suit la luminosité et le nombre de
+canaux qu'allume la couleur. Un port USB à 500 mA est donc à court bien avant qu'un long
+bandeau atteigne sa pleine luminosité.
+
+Les chiffres ci-dessous viennent d'**une seule** installation — un bandeau de 144 LEDs
+WS2812B alimenté en USB — et montrent l'allure de la courbe, ils ne sont pas à réutiliser :
 
 | Scène | Conso estimée par WLED |
 | --- | --- |
@@ -445,21 +452,27 @@ Deux protections :
    connectant à son point d'accès (`http://4.3.2.1/settings/leds`).
 2. Côté pont, les motifs n'allument qu'une portion du bandeau et leur luminosité est
    réduite automatiquement pour tenir sous `powerBudgetMa`, lui-même plafonné par la
-   limite que le module annonce dans `info.leds.maxpwr`.
+   limite que le module annonce dans `info.leds.maxpwr`. Il vaut 700 mA par défaut, ce qui
+   suppose une alimentation USB — relevez-le dans `/bridge` si votre bandeau a sa propre
+   alimentation, ainsi que `ledMilliamps` si vos LEDs ne sont pas des RVB ordinaires.
 
-### Slack sur le Mac
+### Pourquoi les notifications du bureau ne peuvent pas être reprises
 
-Non implémenté, et pas par choix. Sans jeton d'API, lire les notifications de
-l'application Slack du Mac suppose une permission système :
+macOS n'expose aucune API pour lire les notifications d'une autre application : le pont
+ne peut donc pas refléter ce qu'affichent vos applications de bureau — messagerie, mail,
+outil de build. Ce n'est pas un oubli ; chaque contournement réclame une permission bien
+plus large que le besoin :
 
 - la base du Centre de notifications (`group.com.apple.usernoted`) exige un **accès
   disque complet** ;
-- lire le badge du Dock via System Events exige une autorisation **Automation**
-  (sinon erreur `-1743`) ;
-- `lsappinfo` ne renvoie plus rien d'exploitable sur macOS 27.
+- lire le badge du Dock d'une application via System Events exige une autorisation
+  **Automation**, et renvoie l'erreur `-1743` sans elle ;
+- `lsappinfo` ne renvoie plus rien d'exploitable (vérifié sur macOS 27).
 
-Si Slack tourne sur le téléphone, ses notifications arrivent par KDE Connect avec
-`appName = "Slack"`, et la règle correspondante est déjà en place.
+D'où le parti pris des déclencheurs ci-dessus : ne surveiller que ce qui est observable
+sans rien demander. Quand une application tourne aussi sur un téléphone appairé en KDE
+Connect, ses notifications arrivent par ce chemin, avec leur propre `appName` — qu'une
+règle peut ensuite associer à un motif.
 
 ## Architecture
 

@@ -396,11 +396,18 @@ Identical notifications received within the `coalesceSeconds` window are grouped
 ### Current budget
 
 **Read this if your LEDs are powered by the microcontroller.** WLED's current limiter
-(*Automatic Brightness Limiter*) defaults to 2000 mA, which a USB supply does not provide.
-Lighting all 144 LEDs in a bright colour drops the voltage and **the module reboots** — not
-specific to notifications, any bright full-strip scene does it.
+(*Automatic Brightness Limiter*) defaults to 2000 mA, far above what a USB port supplies.
+Asking for more than the supply can give drops the voltage and **the module reboots** —
+nothing to do with notifications, any bright full-strip scene does it.
 
-Measured on a 144-LED strip powered over USB:
+Work out your own ceiling rather than copying anyone's figures. As an order of magnitude,
+an RGB LED draws up to about 55 mA at full white, the controller itself takes around
+100 mA idle, and the draw scales with brightness and with how many channels the colour
+lights. A 500 mA USB port therefore runs out well before a long strip reaches full
+brightness.
+
+The numbers below come from **one** setup — a 144-LED WS2812B strip on USB power — and
+are here to show the shape of the curve, not to be reused:
 
 | Scene | Current estimated by WLED |
 | --- | --- |
@@ -410,6 +417,9 @@ Measured on a 144-LED strip powered over USB:
 | 144 LEDs @ bri 60 | 952 mA |
 | 144 LEDs @ bri 160, bright colour | brownout |
 
+Note how little brightness a full strip can take: 144 LEDs at `bri 60`, less than a
+quarter of the range, already draws more than a USB port gives.
+
 Two protections:
 
 1. Set the module's limiter (*Maximum Current*) to a realistic value — 400 to 500 mA for a
@@ -418,21 +428,27 @@ Two protections:
    (`http://4.3.2.1/settings/leds`).
 2. On the bridge side, patterns light only part of the strip and their brightness is
    reduced automatically to stay under `powerBudgetMa`, itself capped by the limit the
-   module reports in `info.leds.maxpwr`.
+   module reports in `info.leds.maxpwr`. It defaults to 700 mA, which assumes USB power —
+   raise it in `/bridge` if your strip has a supply of its own, along with `ledMilliamps`
+   if your LEDs are not ordinary RGB.
 
-### Slack on the Mac
+### Why desktop notifications cannot be mirrored
 
-Not implemented, and not by choice. Without an API token, reading the Mac Slack app's
-notifications requires a system permission:
+macOS exposes no API for reading another application's notifications, so the bridge
+cannot reflect what your desktop apps are showing — a chat app, a mail client, a build
+tool. This is not an omission; every route around it needs a permission far wider than
+the task:
 
 - the Notification Center database (`group.com.apple.usernoted`) needs **Full Disk
   Access**;
-- reading the Dock badge through System Events needs an **Automation** permission
-  (otherwise error `-1743`);
-- `lsappinfo` no longer returns anything usable on macOS 27.
+- reading an application's Dock badge through System Events needs an **Automation**
+  permission, and returns error `-1743` without it;
+- `lsappinfo` no longer returns anything usable (checked on macOS 27).
 
-If Slack runs on the phone, its notifications arrive through KDE Connect with
-`appName = "Slack"`, and the matching rule is already in place.
+That is why the triggers above watch only what is observable without asking for
+anything. Where an application also runs on a phone paired with KDE Connect, its
+notifications arrive by that route instead, carrying their own `appName` — which a rule
+can then map to a pattern.
 
 ## Architecture
 
