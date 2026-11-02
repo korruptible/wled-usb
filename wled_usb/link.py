@@ -50,7 +50,7 @@ class WledLink:
         with self._io:
             self._suspend.set()
             if not self._idle.wait(timeout=5):
-                raise LinkError("le lecteur série n'a pas relâché le port")
+                raise LinkError("the serial reader did not release the port")
             try:
                 yield
             finally:
@@ -144,12 +144,12 @@ class WledLink:
         if not self.connected and not self._suspend.is_set():
             self.wait_ready()
         if self._serial is None or not self.connected:
-            raise LinkError(f"port série indisponible ({self.last_error or 'non connecté'})")
+            raise LinkError(f"serial port unavailable ({self.last_error or 'not connected'})")
         try:
             self._serial.write(raw)
         except Exception as exc:
             self._fail(exc)
-            raise LinkError(f"écriture série impossible : {exc}") from exc
+            raise LinkError(f"serial write failed: {exc}") from exc
 
     def _drain(self):
         if self._serial is not None:
@@ -166,11 +166,11 @@ class WledLink:
         while True:
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                raise LinkError(f"pas de réponse du module ({kind})")
+                raise LinkError(f"no answer from the module ({kind})")
             try:
                 got_kind, payload = self._events.get(timeout=remaining)
             except queue.Empty:
-                raise LinkError(f"pas de réponse du module ({kind})") from None
+                raise LinkError(f"no answer from the module ({kind})") from None
             if got_kind == kind:
                 return payload
 

@@ -10,13 +10,13 @@ enum AudioTapError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unsupported:
-            return "la capture audio système demande macOS 14.2 ou plus récent"
+            return L10n.t("tap.unsupported")
         case .tapFailed(let status):
-            return "création du tap refusée (\(status)) : autorisation « enregistrement audio du système » manquante ?"
+            return L10n.t("tap.failed", String(status))
         case .aggregateFailed(let status):
-            return "création du périphérique agrégé impossible (\(status))"
+            return L10n.t("tap.aggregate", String(status))
         case .ioFailed(let status):
-            return "démarrage du flux audio impossible (\(status))"
+            return L10n.t("tap.io", String(status))
         }
     }
 }

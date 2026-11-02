@@ -46,10 +46,13 @@ final class BridgeProcess {
         task.arguments = [
             "-u", "-m", "wled_usb",
             "--http-port", String(port),
+            "--listen", UserDefaults.standard.string(forKey: "listen") ?? "localhost",
             "--audio-stdin",
             "--presets", support.appendingPathComponent("presets.json").path,
             "--notifications", support.appendingPathComponent("notifications.json").path,
             "--audio-config", support.appendingPathComponent("audio.json").path,
+            "--ui-config", support.appendingPathComponent("ui.json").path,
+            "--lang", L10n.systemLanguage(),
         ]
         var environment = ProcessInfo.processInfo.environment
         environment["PYTHONPATH"] = bridge.path
@@ -73,7 +76,7 @@ final class BridgeProcess {
                 self?.process = nil
                 self?.state = finished.terminationStatus == 0
                     ? .stopped
-                    : .failed("le pont s'est arrêté (code \(finished.terminationStatus))")
+                    : .failed(L10n.t("bridge.exited", String(finished.terminationStatus)))
                 self?.onChange()
             }
         }

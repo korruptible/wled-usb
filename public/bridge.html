@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pont USB WLED</title>
+<title>WLED USB bridge</title>
 <style>
   :root { color-scheme: dark; --bg:#0e0e10; --card:#17171a; --line:#2a2a30;
           --txt:#e6e6e9; --dim:#9a9aa4; --ok:#37d67a; --ko:#ef5350; --accent:#4ea8ff; }
@@ -14,6 +14,9 @@
            padding:1.2rem 1.5rem; border-bottom:1px solid var(--line); }
   h1 { font-size:1.15rem; margin:0; }
   header a { color:var(--accent); text-decoration:none; font-size:.9rem; }
+  header .spacer { flex:1; }
+  header select { background:#0b0b0d; color:var(--txt); border:1px solid var(--line);
+                  border-radius:6px; padding:.3rem .45rem; font:inherit; font-size:.82rem; }
   main { max-width:56rem; margin:0 auto; padding:1.5rem; display:grid; gap:1.25rem; }
   section { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:1.1rem 1.25rem; }
   h2 { font-size:1rem; margin:0 0 .85rem; }
@@ -61,58 +64,58 @@
 </head>
 <body>
 <header>
-  <h1>Pont USB WLED</h1>
-  <a href="/">← interface de contrôle</a>
+  <h1 data-i18n="app.title">WLED USB bridge</h1>
+  <a href="/" data-i18n="app.back">← control interface</a>
+  <span class="spacer"></span>
+  <select id="lang" aria-label="Language"></select>
 </header>
 
 <main>
   <section>
-    <h2>État de la liaison</h2>
+    <h2 data-i18n="link.title">Link status</h2>
     <dl id="status">
-      <dt>Lien</dt><dd class="muted">…</dd>
+      <dt data-i18n="link.link">Link</dt><dd class="muted">…</dd>
     </dl>
     <p class="muted" id="mismatch" hidden></p>
   </section>
 
   <section>
-    <h2>Presets</h2>
-    <p class="muted">Les <em>noms</em> de presets sont stockés dans le système de fichiers du module
-       et ne transitent pas par le port série. Le pont les mémorise localement : renommer ici
-       n'écrit rien sur le module. La détection charge chaque emplacement tour à tour —
-       les LEDs vont défiler, puis l'état courant est restauré.</p>
+    <h2 data-i18n="presets.title">Presets</h2>
+    <p class="muted" data-i18n="presets.intro"></p>
     <div class="row">
       <div>
-        <label for="scanTo">Scanner les emplacements 1 à</label>
+        <label for="scanTo" data-i18n="presets.scanTo">Scan slots 1 to</label>
         <input type="number" id="scanTo" value="25" min="1" max="250" style="width:5rem">
       </div>
-      <button class="ghost" id="scan">Détecter</button>
+      <button class="ghost" id="scan" data-i18n="presets.scan">Scan</button>
     </div>
     <div id="presets" class="muted">…</div>
   </section>
 
   <section>
-    <h2>Notifications</h2>
-    <label class="toggle"><input type="checkbox" id="notifEnabled"> Activer les notifications</label>
+    <h2 data-i18n="notify.title">Notifications</h2>
+    <label class="toggle"><input type="checkbox" id="notifEnabled">
+      <span data-i18n="notify.enable">Enable notifications</span></label>
     <p class="muted" id="notifSources">…</p>
 
-    <h3>Motifs</h3>
+    <h3 data-i18n="notify.patterns">Patterns</h3>
     <div id="patterns"></div>
     <p class="muted" id="notifBudget"></p>
 
-    <h3>Règles — application du téléphone → motif</h3>
+    <h3 data-i18n="notify.rules">Rules — phone application → pattern</h3>
     <div id="rules"></div>
     <div class="row" style="margin-top:.6rem">
-      <button class="ghost" id="addRule">Ajouter une règle</button>
-      <button id="saveNotif">Enregistrer</button>
+      <button class="ghost" id="addRule" data-i18n="notify.addRule">Add a rule</button>
+      <button id="saveNotif" data-i18n="notify.save">Save</button>
       <span class="muted" id="notifSaved"></span>
     </div>
 
-    <h3>Journal</h3>
+    <h3 data-i18n="notify.log">Log</h3>
     <div id="notifLog" class="muted">…</div>
   </section>
 
   <section>
-    <h2>Son du Mac</h2>
+    <h2 data-i18n="audio.title">Computer audio</h2>
     <p class="muted" id="audioState">…</p>
     <div id="audioMeter" style="height:10px;background:#1a1a1e;border:1px solid var(--line);
          border-radius:5px;overflow:hidden;margin:.5rem 0">
@@ -120,81 +123,303 @@
            transition:width .1s linear"></div>
     </div>
     <div class="row">
-      <label>Rendu
+      <label><span data-i18n="audio.renderer">Renderer</span>
         <select id="audioMode"></select>
       </label>
-      <label>Palette
+      <label><span data-i18n="audio.palette">Palette</span>
         <select id="audioPalette"></select>
       </label>
-      <label>Gain <span class="muted" id="audioGainValue"></span>
+      <label><span data-i18n="audio.gain">Gain</span> <span class="muted" id="audioGainValue"></span>
         <input type="range" id="audioGain" min="0.2" max="6" step="0.1">
       </label>
-      <label class="toggle"><input type="checkbox" id="audioAuto"> Gain automatique
+      <label class="toggle"><input type="checkbox" id="audioAuto">
+        <span data-i18n="audio.auto">Automatic gain</span>
         <span class="muted" id="audioDrive"></span>
       </label>
-      <label>Images/s <span class="muted" id="audioFpsValue"></span>
+      <label><span data-i18n="audio.fps">Frames/s</span> <span class="muted" id="audioFpsValue"></span>
         <input type="range" id="audioFps" min="5" max="60" step="1">
       </label>
     </div>
     <div class="row">
-      <label>Finesse <span class="muted" id="audioCurveValue"></span>
+      <label><span data-i18n="audio.curve">Detail</span> <span class="muted" id="audioCurveValue"></span>
         <input type="range" id="audioCurve" min="0.2" max="1" step="0.05">
       </label>
-      <label>Plancher <span class="muted" id="audioFloorValue"></span>
+      <label><span data-i18n="audio.floor">Floor</span> <span class="muted" id="audioFloorValue"></span>
         <input type="range" id="audioFloor" min="0" max="0.4" step="0.01">
       </label>
     </div>
-    <p class="muted">
-      La <strong>finesse</strong> étale les faibles niveaux : plus elle est basse, plus
-      les petites variations deviennent visibles. Le <strong>plancher</strong> donne une
-      lueur minimale dès qu'il y a du son.
-    </p>
+    <p class="muted" data-i18n="audio.help"></p>
     <p class="muted" id="audioCounters"></p>
-    <p class="muted">
-      La capture s'active depuis le menu de l'app, pas ici : macOS demande l'autorisation
-      « enregistrement audio du système » au premier clic.
-    </p>
+    <p class="muted" data-i18n="audio.capture"></p>
   </section>
 
   <section>
-    <h2>Mise à jour du firmware</h2>
-    <div class="warn">
-      Le flash coupe le pont le temps de l'opération et redémarre le module.
-      Ne débranchez rien pendant l'écriture.
-      Par défaut seule l'<strong>application</strong> est écrite en <code>0x10000</code> :
-      bootloader, table de partitions, système de fichiers et configuration sont conservés.
-    </div>
+    <h2 data-i18n="flash.title">Firmware update</h2>
+    <div class="warn" data-i18n="flash.warn"></div>
     <div class="row">
       <div>
-        <label for="file">Image .bin</label>
+        <label for="file" data-i18n="flash.image">.bin image</label>
         <input type="file" id="file" accept=".bin,application/octet-stream">
       </div>
       <div>
-        <label for="offset">Adresse</label>
+        <label for="offset" data-i18n="flash.offset">Address</label>
         <input type="text" id="offset" value="0x10000" size="9">
       </div>
       <div>
-        <label for="baud">Débit</label>
+        <label for="baud" data-i18n="flash.baud">Baud rate</label>
         <select id="baud">
           <option>115200</option><option>230400</option>
           <option selected>460800</option><option>921600</option>
         </select>
       </div>
-      <button id="go">Flasher</button>
-      <button class="ghost" id="probe">Tester le bootloader</button>
-      <button class="ghost" id="clear">Effacer le journal</button>
+      <button id="go" data-i18n="flash.go">Flash</button>
+      <button class="ghost" id="probe" data-i18n="flash.probe">Test the bootloader</button>
+      <button class="ghost" id="clear" data-i18n="flash.clear">Clear the log</button>
     </div>
-    <p class="muted">
-      Images officielles : <code>WLED_&lt;version&gt;_ESP32.bin</code> depuis les releases GitHub du projet WLED.
-      Pour une image complète fusionnée, mettez l'adresse à <code>0x0</code>.
-    </p>
-    <pre id="log">(aucun flash lancé)</pre>
+    <p class="muted" data-i18n="flash.note"></p>
+    <pre id="log" data-i18n="flash.logEmpty"></pre>
   </section>
 </main>
 
+<footer style="text-align:center;padding:0 1.5rem 2rem;color:var(--dim);font-size:.75rem;opacity:.55">
+  made with ❤️ by Matthieu Jeannin 🇫🇷
+</footer>
+
 <script>
+const I18N = {
+  en: {
+    "app.title": "WLED USB bridge",
+    "app.back": "← control interface",
+    "link.title": "Link status",
+    "link.link": "Link",
+    "link.connected": "connected",
+    "link.disconnected": "disconnected",
+    "link.unreachable": "bridge unreachable",
+    "link.port": "Port",
+    "link.baud": "baud",
+    "link.module": "Module",
+    "link.firmware": "Firmware",
+    "link.leds": "LEDs",
+    "link.uptime": "Uptime",
+    "link.memory": "Free memory",
+    "link.clients": "Live clients",
+    "link.error": "Error",
+    "link.mismatch": (v, d) => `Warning: the bundled effect database (${v}) does not match the module — ${d}`,
+    "presets.title": "Presets",
+    "presets.intro": "Preset <em>names</em> live in the module's filesystem and never travel over the serial port. The bridge remembers them locally: renaming here writes nothing to the module. Scanning loads each slot in turn — the LEDs will cycle, then the current state is restored.",
+    "presets.scanTo": "Scan slots 1 to",
+    "presets.scan": "Scan",
+    "presets.scanning": "Scanning…",
+    "presets.none": "No preset remembered yet — use one from the interface, or run a scan.",
+    "presets.forget": "forget",
+    "notify.title": "Notifications",
+    "notify.enable": "Enable notifications",
+    "notify.patterns": "Patterns",
+    "notify.rules": "Rules — phone application → pattern",
+    "notify.addRule": "Add a rule",
+    "notify.save": "Save",
+    "notify.saved": "saved",
+    "notify.log": "Log",
+    "notify.logEmpty": "No notification received.",
+    "notify.noSources": "No source configured.",
+    "notify.sources": (detail, bus) => `KDE Connect: ${detail}${bus ? ` (bus ${bus})` : ""}`,
+    "notify.budget": (ma) => `Current budget: ${ma} mA requested, capped by the module's own limit. A pattern's brightness is reduced automatically if it goes over.`,
+    "notify.test": "Test",
+    "notify.remove": "remove",
+    "notify.litLeds": "lit LEDs",
+    "notify.brightness": "brightness",
+    "notify.flashCount": "number of flashes",
+    "notify.unitFlashes": "flashes",
+    "audio.title": "Computer audio",
+    "audio.renderer": "Renderer",
+    "audio.palette": "Palette",
+    "audio.gain": "Gain",
+    "audio.auto": "Automatic gain",
+    "audio.applied": (v) => `applied: ${v}`,
+    "audio.fps": "Frames/s",
+    "audio.curve": "Detail",
+    "audio.floor": "Floor",
+    "audio.help": "<strong>Detail</strong> spreads out the quiet levels: the lower it is, the more small variations become visible. <strong>Floor</strong> gives a minimum glow as soon as there is sound.",
+    "audio.capture": "Capture is switched on from the app menu, not here: macOS asks for the “system audio recording” permission on the first click.",
+    "audio.idle": "capture off — switch it on from the app menu",
+    "audio.paused": "paused (notification playing)",
+    "audio.active": "capture active",
+    "audio.error": (e) => `error: ${e}`,
+    "audio.counters": (sent, dropped) => `${sent} frames sent, ${dropped} dropped by the frame-rate cap.`,
+    "audio.mode.spectrum": "spectrum",
+    "audio.mode.bass": "bass",
+    "audio.mode.wave": "wave",
+    "audio.mode.pulse": "pulse",
+    "audio.palette.rainbow": "rainbow",
+    "audio.palette.ember": "ember",
+    "audio.palette.ocean": "ocean",
+    "audio.palette.forest": "forest",
+    "audio.palette.neon": "neon",
+    "audio.palette.ice": "ice",
+    "audio.palette.sunset": "sunset",
+    "flash.title": "Firmware update",
+    "flash.warn": "Flashing suspends the bridge for the duration and restarts the module. Do not unplug anything while it writes. By default only the <strong>application</strong> is written at <code>0x10000</code>: bootloader, partition table, filesystem and configuration are kept.",
+    "flash.image": ".bin image",
+    "flash.offset": "Address",
+    "flash.baud": "Baud rate",
+    "flash.go": "Flash",
+    "flash.running": "Flashing…",
+    "flash.probe": "Test the bootloader",
+    "flash.clear": "Clear the log",
+    "flash.note": "Official images: <code>WLED_&lt;version&gt;_ESP32.bin</code> from the WLED project's GitHub releases. For a full merged image, set the address to <code>0x0</code>.",
+    "flash.logEmpty": "(no flash started)",
+    "flash.logCleared": "(log cleared)",
+    "flash.pickFile": "Choose a .bin image first",
+    "flash.confirm": (name, size, offset) => `Write ${name} (${size} KiB) at ${offset}?`,
+    "flash.failed": (e) => `Failed: ${e}`,
+    "outcome.accepted": "accepted",
+    "outcome.played": "played",
+    "outcome.dropped": "dropped",
+    "outcome.disabled": "disabled",
+    "outcome.ignored": "ignored",
+    "outcome.grouped": "grouped",
+    "outcome.quiet-hours": "quiet hours",
+    "outcome.queue-full": "queue full",
+  },
+  fr: {
+    "app.title": "Pont USB WLED",
+    "app.back": "← interface de contrôle",
+    "link.title": "État de la liaison",
+    "link.link": "Lien",
+    "link.connected": "connecté",
+    "link.disconnected": "déconnecté",
+    "link.unreachable": "pont injoignable",
+    "link.port": "Port",
+    "link.baud": "bauds",
+    "link.module": "Module",
+    "link.firmware": "Firmware",
+    "link.leds": "LEDs",
+    "link.uptime": "Uptime",
+    "link.memory": "Mémoire libre",
+    "link.clients": "Clients live",
+    "link.error": "Erreur",
+    "link.mismatch": (v, d) => `Attention : la base d'effets embarquée (${v}) ne correspond pas au module — ${d}`,
+    "presets.title": "Presets",
+    "presets.intro": "Les <em>noms</em> de presets sont stockés dans le système de fichiers du module et ne transitent pas par le port série. Le pont les mémorise localement : renommer ici n'écrit rien sur le module. La détection charge chaque emplacement tour à tour — les LEDs vont défiler, puis l'état courant est restauré.",
+    "presets.scanTo": "Scanner les emplacements 1 à",
+    "presets.scan": "Détecter",
+    "presets.scanning": "Détection…",
+    "presets.none": "Aucun preset mémorisé pour l'instant — utilisez-en un depuis l'interface, ou lancez une détection.",
+    "presets.forget": "oublier",
+    "notify.title": "Notifications",
+    "notify.enable": "Activer les notifications",
+    "notify.patterns": "Motifs",
+    "notify.rules": "Règles — application du téléphone → motif",
+    "notify.addRule": "Ajouter une règle",
+    "notify.save": "Enregistrer",
+    "notify.saved": "enregistré",
+    "notify.log": "Journal",
+    "notify.logEmpty": "Aucune notification reçue.",
+    "notify.noSources": "Aucune source configurée.",
+    "notify.sources": (detail, bus) => `KDE Connect : ${detail}${bus ? ` (bus ${bus})` : ""}`,
+    "notify.budget": (ma) => `Budget de courant : ${ma} mA demandés, plafonnés par la limite du module. La luminosité d'un motif est réduite automatiquement s'il dépasse.`,
+    "notify.test": "Tester",
+    "notify.remove": "retirer",
+    "notify.litLeds": "LEDs allumées",
+    "notify.brightness": "luminosité",
+    "notify.flashCount": "nombre de flashs",
+    "notify.unitFlashes": "flashs",
+    "audio.title": "Son de l'ordinateur",
+    "audio.renderer": "Rendu",
+    "audio.palette": "Palette",
+    "audio.gain": "Gain",
+    "audio.auto": "Gain automatique",
+    "audio.applied": (v) => `appliqué : ${v}`,
+    "audio.fps": "Images/s",
+    "audio.curve": "Finesse",
+    "audio.floor": "Plancher",
+    "audio.help": "La <strong>finesse</strong> étale les faibles niveaux : plus elle est basse, plus les petites variations deviennent visibles. Le <strong>plancher</strong> donne une lueur minimale dès qu'il y a du son.",
+    "audio.capture": "La capture s'active depuis le menu de l'app, pas ici : macOS demande l'autorisation « enregistrement audio du système » au premier clic.",
+    "audio.idle": "capture inactive — à activer dans le menu de l'app",
+    "audio.paused": "en pause (notification en cours)",
+    "audio.active": "capture active",
+    "audio.error": (e) => `erreur : ${e}`,
+    "audio.counters": (sent, dropped) => `${sent} images envoyées, ${dropped} écartées par le plafond de cadence.`,
+    "audio.mode.spectrum": "spectre",
+    "audio.mode.bass": "graves",
+    "audio.mode.wave": "onde",
+    "audio.mode.pulse": "pulsation",
+    "audio.palette.rainbow": "arc-en-ciel",
+    "audio.palette.ember": "braise",
+    "audio.palette.ocean": "océan",
+    "audio.palette.forest": "forêt",
+    "audio.palette.neon": "néon",
+    "audio.palette.ice": "glace",
+    "audio.palette.sunset": "coucher",
+    "flash.title": "Mise à jour du firmware",
+    "flash.warn": "Le flash coupe le pont le temps de l'opération et redémarre le module. Ne débranchez rien pendant l'écriture. Par défaut seule l'<strong>application</strong> est écrite en <code>0x10000</code> : bootloader, table de partitions, système de fichiers et configuration sont conservés.",
+    "flash.image": "Image .bin",
+    "flash.offset": "Adresse",
+    "flash.baud": "Débit",
+    "flash.go": "Flasher",
+    "flash.running": "Flash en cours…",
+    "flash.probe": "Tester le bootloader",
+    "flash.clear": "Effacer le journal",
+    "flash.note": "Images officielles : <code>WLED_&lt;version&gt;_ESP32.bin</code> depuis les releases GitHub du projet WLED. Pour une image complète fusionnée, mettez l'adresse à <code>0x0</code>.",
+    "flash.logEmpty": "(aucun flash lancé)",
+    "flash.logCleared": "(journal effacé)",
+    "flash.pickFile": "Choisissez d'abord une image .bin",
+    "flash.confirm": (name, size, offset) => `Écrire ${name} (${size} Kio) en ${offset} ?`,
+    "flash.failed": (e) => `Échec : ${e}`,
+    "outcome.accepted": "acceptée",
+    "outcome.played": "jouée",
+    "outcome.dropped": "abandonnée",
+    "outcome.disabled": "désactivé",
+    "outcome.ignored": "ignorée",
+    "outcome.grouped": "groupée",
+    "outcome.quiet-hours": "heures calmes",
+    "outcome.queue-full": "file pleine",
+  },
+};
+
+const LANGUAGE_NAMES = { en: "English", fr: "Français" };
+
 const $ = (id) => document.getElementById(id);
+let lang = "en";
 let logCursor = 0, flashing = false;
+
+function t(key, ...args) {
+  const entry = (I18N[lang] || {})[key] ?? (I18N.en || {})[key];
+  if (entry === undefined) return key;
+  return typeof entry === "function" ? entry(...args) : entry;
+}
+
+function applyStatic() {
+  document.documentElement.lang = lang;
+  document.title = t("app.title");
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    node.innerHTML = t(node.dataset.i18n);
+  });
+}
+
+async function setLanguage(next, persist) {
+  lang = I18N[next] ? next : "en";
+  if (persist) {
+    await fetch("/bridge/ui", { method: "POST", body: JSON.stringify({ language: lang }) });
+  }
+  applyStatic();
+  audioConfig = null;
+  refreshStatus();
+  refreshPresets();
+  refreshNotify();
+  refreshAudio();
+}
+
+async function initLanguage() {
+  let data = { language: "en", languages: ["en"] };
+  try { data = await (await fetch("/bridge/ui")).json(); } catch {}
+  $("lang").innerHTML = (data.languages || ["en"])
+    .map((code) => `<option value="${code}"${code === data.language ? " selected" : ""}>` +
+                   `${LANGUAGE_NAMES[code] || code}</option>`).join("");
+  await setLanguage(data.language, false);
+}
+
+$("lang").onchange = () => setLanguage($("lang").value, true);
 
 function line(key, value) {
   return `<dt>${key}</dt><dd>${value ?? "—"}</dd>`;
@@ -206,26 +431,24 @@ async function refreshStatus() {
   try {
     s = await (await fetch("/bridge/status")).json();
   } catch {
-    box.innerHTML = `<dt>Lien</dt><dd class="err">pont injoignable</dd>`;
+    box.innerHTML = `<dt>${t("link.link")}</dt><dd class="err">${t("link.unreachable")}</dd>`;
     return;
   }
   const d = s.device || {};
   box.innerHTML =
-    `<dt>Lien</dt><dd><span class="pill"><span class="dot${s.connected ? " on" : ""}"></span>` +
-    `${s.connected ? "connecté" : "déconnecté"}</span></dd>` +
-    line("Port", `${s.port} @ ${s.baudrate} bauds`) +
-    line("Module", d.name) +
-    line("Firmware", d.version ? `${d.version} (${d.arch})` : null) +
-    line("LEDs", d.ledCount != null ? `${d.ledCount} · ${d.fps ?? "?"} fps` : null) +
-    line("Uptime", d.uptime != null ? `${d.uptime} s` : null) +
-    line("Mémoire libre", d.freeHeap != null ? `${(d.freeHeap / 1024).toFixed(0)} Kio` : null) +
-    line("Clients live", s.wsClients) +
-    (s.error ? `<dt>Erreur</dt><dd class="err">${s.error}</dd>` : "");
+    `<dt>${t("link.link")}</dt><dd><span class="pill"><span class="dot${s.connected ? " on" : ""}"></span>` +
+    `${s.connected ? t("link.connected") : t("link.disconnected")}</span></dd>` +
+    line(t("link.port"), `${s.port} @ ${s.baudrate} ${t("link.baud")}`) +
+    line(t("link.module"), d.name) +
+    line(t("link.firmware"), d.version ? `${d.version} (${d.arch})` : null) +
+    line(t("link.leds"), d.ledCount != null ? `${d.ledCount} · ${d.fps ?? "?"} fps` : null) +
+    line(t("link.uptime"), d.uptime != null ? `${d.uptime} s` : null) +
+    line(t("link.memory"), d.freeHeap != null ? `${(d.freeHeap / 1024).toFixed(0)} KiB` : null) +
+    line(t("link.clients"), s.wsClients) +
+    (s.error ? `<dt>${t("link.error")}</dt><dd class="err">${s.error}</dd>` : "");
   const m = $("mismatch");
   m.hidden = !s.dataMismatch;
-  m.textContent = s.dataMismatch
-    ? `Attention : la base d'effets embarquée (${s.dataVersion}) ne correspond pas au module — ${s.dataMismatch}`
-    : "";
+  m.textContent = s.dataMismatch ? t("link.mismatch", s.dataVersion, s.dataMismatch) : "";
 }
 
 async function pollFlash() {
@@ -240,19 +463,19 @@ async function pollFlash() {
   if (s.running) return setTimeout(pollFlash, 400);
   flashing = false;
   $("go").disabled = false;
-  $("go").textContent = "Flasher";
+  $("go").textContent = t("flash.go");
 }
 
 $("go").onclick = async () => {
   const file = $("file").files[0];
-  if (!file) return alert("Choisissez d'abord une image .bin");
+  if (!file) return alert(t("flash.pickFile"));
   const offset = $("offset").value.trim();
-  if (!confirm(`Écrire ${file.name} (${(file.size / 1024).toFixed(0)} Kio) en ${offset} ?`)) return;
+  if (!confirm(t("flash.confirm", file.name, (file.size / 1024).toFixed(0), offset))) return;
 
   flashing = true;
   logCursor = 0;
   $("go").disabled = true;
-  $("go").textContent = "Flash en cours…";
+  $("go").textContent = t("flash.running");
   $("log").textContent = "";
 
   const url = `/bridge/flash?offset=${encodeURIComponent(offset)}&baud=${$("baud").value}`;
@@ -263,10 +486,10 @@ $("go").onclick = async () => {
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    $("log").textContent = "Échec : " + err.error;
+    $("log").textContent = t("flash.failed", err.error);
     flashing = false;
     $("go").disabled = false;
-    $("go").textContent = "Flasher";
+    $("go").textContent = t("flash.go");
     return;
   }
   pollFlash();
@@ -279,14 +502,14 @@ $("probe").onclick = async () => {
   const res = await fetch("/bridge/flash/probe", { method: "POST" });
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: res.statusText }));
-    $("log").textContent = "Échec : " + err.error;
+    $("log").textContent = t("flash.failed", err.error);
     flashing = false;
     return;
   }
   pollFlash();
 };
 
-$("clear").onclick = () => { $("log").textContent = "(journal effacé)"; };
+$("clear").onclick = () => { $("log").textContent = t("flash.logCleared"); };
 
 async function refreshPresets() {
   const box = $("presets");
@@ -294,21 +517,20 @@ async function refreshPresets() {
   try { store = await (await fetch("/presets.json")).json(); } catch { return; }
   const slots = Object.keys(store).filter((k) => k !== "0").sort((a, b) => a - b);
   if (!slots.length) {
-    box.textContent = "Aucun preset mémorisé pour l'instant — utilisez-en un depuis l'interface, ou lancez une détection.";
+    box.textContent = t("presets.none");
     return;
   }
   box.innerHTML = slots.map((s) => {
     const name = String(store[s].n ?? "").replace(/"/g, "&quot;");
     return `<div class="preset"><span class="slot">${s}</span>` +
            `<input type="text" data-slot="${s}" value="${name}">` +
-           `<button class="ghost" data-forget="${s}">oublier</button></div>`;
+           `<button class="ghost" data-forget="${s}">${t("presets.forget")}</button></div>`;
   }).join("");
   box.querySelectorAll("input[data-slot]").forEach((input) => {
     input.onchange = async () => {
       await fetch(`/bridge/presets/name?slot=${input.dataset.slot}`,
                   { method: "POST", body: JSON.stringify({ n: input.value }) });
       refreshPresets();
-
     };
   });
   box.querySelectorAll("button[data-forget]").forEach((button) => {
@@ -322,17 +544,16 @@ async function refreshPresets() {
 $("scan").onclick = async () => {
   const button = $("scan");
   button.disabled = true;
-  button.textContent = "Détection…";
+  button.textContent = t("presets.scanning");
   try {
     await fetch(`/bridge/presets/scan?to=${$("scanTo").value}`, { method: "POST" });
   } finally {
     button.disabled = false;
-    button.textContent = "Détecter";
+    button.textContent = t("presets.scan");
     refreshPresets();
   }
 };
 
-refreshPresets();
 let notifConfig = null;
 
 const hex = (rgb) => "#" + rgb.map((v) => Math.max(0, Math.min(255, v)).toString(16).padStart(2, "0")).join("");
@@ -343,10 +564,10 @@ function renderPatterns() {
     <div class="pat" data-name="${name}">
       <span class="nm">${name}</span>
       <input type="color" data-k="color" value="${hex(p.color)}">
-      <input type="number" data-k="leds" value="${p.leds ?? ""}" min="1" max="2000" title="LEDs allumées"><span class="unit">leds</span>
-      <input type="number" data-k="bri" value="${p.bri}" min="1" max="255" title="luminosité"><span class="unit">bri</span>
-      <input type="number" data-k="flashes" value="${p.flashes}" min="1" max="20" title="nombre de flashs"><span class="unit">flashs</span>
-      <button class="ghost" data-test="${name}">Tester</button>
+      <input type="number" data-k="leds" value="${p.leds ?? ""}" min="1" max="2000" title="${t("notify.litLeds")}"><span class="unit">leds</span>
+      <input type="number" data-k="bri" value="${p.bri}" min="1" max="255" title="${t("notify.brightness")}"><span class="unit">bri</span>
+      <input type="number" data-k="flashes" value="${p.flashes}" min="1" max="20" title="${t("notify.flashCount")}"><span class="unit">${t("notify.unitFlashes")}</span>
+      <button class="ghost" data-test="${name}">${t("notify.test")}</button>
     </div>`).join("");
 
   $("patterns").querySelectorAll("input").forEach((input) => {
@@ -370,7 +591,7 @@ function renderRules() {
       <span class="unit">→</span>
       <select data-k="pattern">${names.map((n) =>
         `<option${n === rule.pattern ? " selected" : ""}>${n}</option>`).join("")}</select>
-      <button class="ghost" data-del="${index}">retirer</button>
+      <button class="ghost" data-del="${index}">${t("notify.remove")}</button>
     </div>`).join("");
 
   $("rules").querySelectorAll("input,select").forEach((field) => {
@@ -388,11 +609,12 @@ function renderRules() {
 }
 
 function renderLog(recent) {
-  if (!recent.length) { $("notifLog").textContent = "Aucune notification reçue."; return; }
+  if (!recent.length) { $("notifLog").textContent = t("notify.logEmpty"); return; }
   $("notifLog").innerHTML = "<table class='log'>" + recent.slice(0, 12).map((e) => {
     const when = new Date(e.at * 1000).toLocaleTimeString();
     const what = [e.app, e.title].filter(Boolean).join(" — ");
-    return `<tr><td>${when}</td><td>${what}</td><td>${e.pattern} · ${e.outcome}</td></tr>`;
+    const outcome = (I18N[lang] || {})[`outcome.${e.outcome}`] ? t(`outcome.${e.outcome}`) : e.outcome;
+    return `<tr><td>${when}</td><td>${what}</td><td>${e.pattern} · ${outcome}</td></tr>`;
   }).join("") + "</table>";
 }
 
@@ -402,14 +624,12 @@ async function refreshNotify(full = true) {
   renderLog(data.recent);
   const kde = (data.sources || {}).kdeconnect;
   $("notifSources").textContent = kde
-    ? `KDE Connect : ${kde.detail}${kde.bus ? ` (bus ${kde.bus})` : ""}`
-    : "Aucune source configurée.";
+    ? t("notify.sources", kde.detail, kde.bus)
+    : t("notify.noSources");
   if (!full && notifConfig) return;
   notifConfig = data.config;
   $("notifEnabled").checked = !!notifConfig.enabled;
-  $("notifBudget").textContent =
-    `Budget de courant : ${notifConfig.powerBudgetMa} mA demandés, plafonnés par la limite du module. ` +
-    `La luminosité d'un motif est réduite automatiquement s'il dépasse.`;
+  $("notifBudget").textContent = t("notify.budget", notifConfig.powerBudgetMa);
   renderPatterns();
   renderRules();
 }
@@ -424,41 +644,43 @@ $("addRule").onclick = () => {
 $("saveNotif").onclick = async () => {
   notifConfig.rules = notifConfig.rules.filter((r) => String(r.app).trim());
   await fetch("/bridge/notify/config", { method: "POST", body: JSON.stringify(notifConfig) });
-  $("notifSaved").textContent = "enregistré";
+  $("notifSaved").textContent = t("notify.saved");
   setTimeout(() => { $("notifSaved").textContent = ""; }, 2000);
   refreshNotify();
 };
 
-refreshNotify();
 setInterval(() => refreshNotify(false), 4000);
 
-
 let audioConfig = null;
+
+const named = (prefix, key) =>
+  (I18N[lang] || {})[`${prefix}.${key}`] ? t(`${prefix}.${key}`) : key;
 
 async function refreshAudio() {
   let data;
   try { data = await (await fetch("/bridge/audio")).json(); } catch { return; }
 
   if (!data.running) {
-    $("audioState").textContent = "capture inactive — à activer dans le menu de l'app";
+    $("audioState").textContent = t("audio.idle");
     $("audioBar").style.width = "0";
     $("audioCounters").textContent = "";
     return;
   }
   $("audioState").textContent = data.error
-    ? `erreur : ${data.error}`
-    : (data.paused ? "en pause (notification en cours)" : "capture active");
+    ? t("audio.error", data.error)
+    : (data.paused ? t("audio.paused") : t("audio.active"));
   $("audioBar").style.width = Math.round((data.level || 0) * 100) + "%";
-  $("audioCounters").textContent =
-    `${data.frames} images envoyées, ${data.dropped} écartées par le plafond de cadence.`;
-  $("audioDrive").textContent = data.auto ? `appliqué : ${data.drive}` : "";
+  $("audioCounters").textContent = t("audio.counters", data.frames, data.dropped);
+  $("audioDrive").textContent = data.auto ? t("audio.applied", data.drive) : "";
 
   if (audioConfig) return;
   audioConfig = data;
   $("audioMode").innerHTML = (data.modes || [])
-    .map((m) => `<option value="${m}"${m === data.mode ? " selected" : ""}>${m}</option>`).join("");
+    .map((m) => `<option value="${m}"${m === data.mode ? " selected" : ""}>` +
+                `${named("audio.mode", m)}</option>`).join("");
   $("audioPalette").innerHTML = (data.palettes || [])
-    .map((p) => `<option value="${p}"${p === data.palette ? " selected" : ""}>${p}</option>`).join("");
+    .map((p) => `<option value="${p}"${p === data.palette ? " selected" : ""}>` +
+                `${named("audio.palette", p)}</option>`).join("");
   $("audioGain").value = data.gain;
   $("audioAuto").checked = !!data.auto;
   $("audioFps").value = data.fps;
@@ -494,12 +716,10 @@ $("audioFps").onchange = pushAudio;
 $("audioCurve").onchange = pushAudio;
 $("audioFloor").onchange = pushAudio;
 
-refreshAudio();
 setInterval(refreshAudio, 500);
-
-
-refreshStatus();
 setInterval(() => { if (!flashing) refreshStatus(); }, 2000);
+
+initLanguage();
 </script>
 </body>
 </html>

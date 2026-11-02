@@ -32,7 +32,6 @@ DEFAULTS = {
         {"app": "Messenger", "pattern": "message", "priority": 10},
         {"app": "Signal", "pattern": "message", "priority": 15},
         {"app": "WhatsApp", "pattern": "message", "priority": 15},
-        {"app": "Téléphone", "pattern": "call", "priority": 50},
         {"app": "Phone", "pattern": "call", "priority": 50},
     ],
     "ignore": [],
@@ -99,22 +98,22 @@ class Notifier:
             self._record(notification, verdict)
             return verdict
         if self._queue.qsize() >= self.config.get("maxQueue", 12):
-            self._record(notification, "file pleine")
+            self._record(notification, "queue-full")
             return "dropped"
         self._queue.put(notification)
         return "accepted"
 
     def _screen(self, notification):
         if not self.config.get("enabled", True):
-            return "désactivé"
+            return "disabled"
         if self._in_quiet_hours():
-            return "heures calmes"
+            return "quiet-hours"
         app = notification.app.lower()
         for entry in self.config.get("ignore", []):
             if isinstance(entry, str) and entry.lower() == app:
-                return "ignoré"
+                return "ignored"
             if isinstance(entry, dict) and str(entry.get("app", "")).lower() == app:
-                return "ignoré"
+                return "ignored"
 
         window = self.config.get("coalesceSeconds", 6)
         now = time.monotonic()
@@ -122,7 +121,7 @@ class Notifier:
             previous = self._recent.get(notification.key())
             self._recent[notification.key()] = now
         if previous is not None and now - previous < window:
-            return "groupé"
+            return "grouped"
         return "accepted"
 
     def _in_quiet_hours(self):
@@ -189,9 +188,9 @@ class Notifier:
             try:
                 self._play(self.pattern(name))
             except LinkError as exc:
-                self._record(notification, f"échec : {exc}")
+                self._record(notification, f"failed: {exc}")
             else:
-                self._record(notification, "joué")
+                self._record(notification, "played")
 
     def budget(self, leds, colour, brightness):
         per_led = self.config.get("ledMilliamps", 55)

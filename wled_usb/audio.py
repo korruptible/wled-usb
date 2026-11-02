@@ -8,7 +8,7 @@ import time
 from .link import LinkError
 
 MAGIC = b"\xa5\x5a"
-MODES = ("spectre", "graves", "onde", "pulsation")
+MODES = ("spectrum", "bass", "wave", "pulse")
 AGC_FLOOR = 0.04
 AGC_RELEASE = 0.995
 PIXEL_DECAY = 0.72
@@ -30,15 +30,21 @@ def adalight(pixels):
 
 
 PALETTES = {
-    "arc-en-ciel": [(255, 0, 0), (255, 190, 0), (0, 255, 40), (0, 180, 255), (120, 0, 255)],
-    "braise": [(255, 30, 0), (255, 110, 0), (255, 190, 40), (255, 240, 170)],
-    "océan": [(0, 70, 210), (0, 150, 235), (0, 230, 220), (190, 255, 255)],
-    "forêt": [(25, 130, 25), (70, 205, 45), (155, 240, 65), (245, 255, 180)],
-    "néon": [(255, 0, 120), (175, 0, 255), (0, 150, 255), (0, 255, 200)],
-    "glace": [(45, 95, 225), (95, 165, 245), (175, 215, 255), (255, 255, 255)],
-    "coucher": [(130, 0, 155), (235, 0, 100), (255, 110, 30), (255, 220, 120)],
+    "rainbow": [(255, 0, 0), (255, 190, 0), (0, 255, 40), (0, 180, 255), (120, 0, 255)],
+    "ember": [(255, 30, 0), (255, 110, 0), (255, 190, 40), (255, 240, 170)],
+    "ocean": [(0, 70, 210), (0, 150, 235), (0, 230, 220), (190, 255, 255)],
+    "forest": [(25, 130, 25), (70, 205, 45), (155, 240, 65), (245, 255, 180)],
+    "neon": [(255, 0, 120), (175, 0, 255), (0, 150, 255), (0, 255, 200)],
+    "ice": [(45, 95, 225), (95, 165, 245), (175, 215, 255), (255, 255, 255)],
+    "sunset": [(130, 0, 155), (235, 0, 100), (255, 110, 30), (255, 220, 120)],
 }
-DEFAULT_PALETTE = "arc-en-ciel"
+DEFAULT_PALETTE = "rainbow"
+
+LEGACY_NAMES = {
+    "spectre": "spectrum", "graves": "bass", "onde": "wave", "pulsation": "pulse",
+    "arc-en-ciel": "rainbow", "braise": "ember", "océan": "ocean", "forêt": "forest",
+    "néon": "neon", "glace": "ice", "coucher": "sunset",
+}
 
 
 def shade(palette, position, value):
@@ -114,26 +120,30 @@ def pulse(levels, count, gain, palette, state):
     return [shade(palette, centroid(levels), energy * gain)] * count
 
 
-RENDERERS = {"spectre": spectrum, "graves": bass, "onde": wave, "pulsation": pulse}
+RENDERERS = {"spectrum": spectrum, "bass": bass, "wave": wave, "pulse": pulse}
 
 DRIVES = {
-    "spectre": lambda levels: max(levels, default=0.0),
-    "graves": lambda levels: sum(levels[:6]) / 6,
-    "onde": lambda levels: sum(levels[:5]) / 5,
-    "pulsation": lambda levels: sum(levels) / max(1, len(levels)),
+    "spectrum": lambda levels: max(levels, default=0.0),
+    "bass": lambda levels: sum(levels[:6]) / 6,
+    "wave": lambda levels: sum(levels[:5]) / 5,
+    "pulse": lambda levels: sum(levels) / max(1, len(levels)),
 }
 
 
 class AudioEngine:
-    def __init__(self, bridge, fps=25, mode="spectre", gain=0.8, curve=0.55, floor=0.03,
+    def __init__(self, bridge, fps=25, mode="spectrum", gain=0.8, curve=0.55, floor=0.03,
                  palette=DEFAULT_PALETTE, auto=True, config_path=None):
         self.bridge = bridge
         self.fps = fps
-        self.mode = mode if mode in RENDERERS else "spectre"
+        self.mode = LEGACY_NAMES.get(mode, mode)
+        if self.mode not in RENDERERS:
+            self.mode = "spectrum"
         self.gain = gain
         self.curve = curve
         self.floor = floor
-        self.palette = palette if palette in PALETTES else DEFAULT_PALETTE
+        self.palette = LEGACY_NAMES.get(palette, palette)
+        if self.palette not in PALETTES:
+            self.palette = DEFAULT_PALETTE
         self.auto = bool(auto)
         self.path = pathlib.Path(config_path) if config_path else None
         self._restore()
@@ -177,6 +187,7 @@ class AudioEngine:
 
     def configure(self, mode=None, gain=None, fps=None, curve=None, floor=None,
                   palette=None, auto=None):
+        mode = LEGACY_NAMES.get(mode, mode)
         if mode in RENDERERS:
             self.mode = mode
         if gain is not None:
@@ -187,6 +198,7 @@ class AudioEngine:
             self.curve = max(0.2, min(1.0, float(curve)))
         if floor is not None:
             self.floor = max(0.0, min(0.4, float(floor)))
+        palette = LEGACY_NAMES.get(palette, palette)
         if palette in PALETTES:
             self.palette = palette
         if auto is not None:
@@ -203,10 +215,14 @@ class AudioEngine:
             return
         if not isinstance(saved, dict):
             return
-        if saved.get("mode") in RENDERERS:
-            self.mode = saved["mode"]
-        if saved.get("palette") in PALETTES:
-            self.palette = saved["palette"]
+        mode = LEGACY_NAMES.get(saved.get("mode"), saved.get("mode"))
+        mode = LEGACY_NAMES.get(mode, mode)
+        if mode in RENDERERS:
+            self.mode = mode
+        palette = LEGACY_NAMES.get(saved.get("palette"), saved.get("palette"))
+        palette = LEGACY_NAMES.get(palette, palette)
+        if palette in PALETTES:
+            self.palette = palette
         if isinstance(saved.get("auto"), bool):
             self.auto = saved["auto"]
         for name, low, high in (("gain", 0.1, 8.0), ("curve", 0.2, 1.0), ("floor", 0.0, 0.4)):

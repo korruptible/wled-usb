@@ -59,7 +59,7 @@ TOKENS = {
 def resolve(spec):
     wanted = [item.strip() for item in spec.split(",") if item.strip()]
     if not wanted:
-        raise ListenError("aucune adresse d'écoute demandée")
+        raise ListenError("no listen address requested")
 
     resolved, seen, missing = [], set(), []
     for item in wanted:
@@ -72,7 +72,7 @@ def resolve(spec):
             try:
                 ipaddress.ip_address(item)
             except ValueError:
-                raise ListenError(f"adresse d'écoute invalide : {item}") from None
+                raise ListenError(f"invalid listen address: {item}") from None
             addresses, key = [item], "explicite"
         for address in addresses:
             if address not in seen:

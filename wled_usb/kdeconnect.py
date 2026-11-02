@@ -28,7 +28,7 @@ class KdeConnectSource:
         )
         self.bus = None
         self.devices = []
-        self.detail = "non démarré"
+        self.detail = "not started"
         self._seen = {}
         self._primed = set()
         self._stop = threading.Event()
@@ -112,12 +112,12 @@ class KdeConnectSource:
 
             devices = self._list_devices()
             if not devices:
-                self.detail = "aucun appareil appairé visible"
+                self.detail = "no paired device visible"
                 self.bus = None
                 continue
 
             self.devices = devices
-            self.detail = f"{len(devices)} appareil(s) surveillé(s)"
+            self.detail = f"watching {len(devices)} device(s)"
             for device in devices:
                 self._scan(device)
 

@@ -77,7 +77,7 @@ class Flasher:
     def _begin(self):
         with self._lock:
             if self._running:
-                raise FlashError("une opération esptool est déjà en cours")
+                raise FlashError("an esptool operation is already running")
             self._running = True
             self._outcome = None
             self._started_at = time.time()
@@ -92,17 +92,17 @@ class Flasher:
         outcome = "error"
         try:
             with self.link.suspended():
-                self._append(f"port {self.link.port} libéré, lancement d'esptool…")
+                self._append(f"port {self.link.port} released, starting esptool…")
                 code = self._stream(command)
                 outcome = "ok" if code == 0 else "error"
-                self._append(f"esptool terminé avec le code {code}")
+                self._append(f"esptool finished with code {code}")
         except Exception as exc:
-            self._append(f"échec : {exc}")
+            self._append(f"failed: {exc}")
         finally:
             with self._lock:
                 self._running = False
                 self._outcome = outcome
-            self._append("port série repris par le pont")
+            self._append("serial port taken back by the bridge")
 
     def _stream(self, command):
         process = subprocess.Popen(

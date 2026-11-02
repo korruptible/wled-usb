@@ -1,19 +1,27 @@
-# wled-usb — pont USB série pour WLED
+# wled-usb — control WLED over USB serial, without WiFi
 
-Pilote un module WLED **uniquement par USB**, sans aucun accès réseau au module,
-et sert l'**interface web officielle de WLED** en local.
+Drive a **WLED** LED controller over **USB serial only**, with **no network access to the
+device**, and serve the **official WLED web interface** locally.
 
-Le firmware WLED écoute du JSON sur son port série : tout objet commençant par `{`
-est passé à `deserializeState()`, et `{"v":true}` fait répondre l'état complet.
-Le pont traduit les requêtes HTTP de l'UI officielle vers ce canal série.
+Useful when the module must not join a network: a corporate or guest WiFi you cannot put
+an IoT device on, an air-gapped bench, or simply not wanting one more ESP32 exposed at
+home. WLED's own settings pages assume a web server on the device; this bridge gives you
+the real control interface without one.
 
-Développé et testé sur WLED 16.0.1, ESP32-PICO-D4, 144 LEDs, macOS 27 sur Apple
-Silicon. Le pont lui-même n'a rien de spécifique à macOS ; l'application de barre des
-menus décrite plus bas, si.
+*[Version française](README.fr.md) · the interface itself is bilingual (English/French)
+and follows your computer's language.*
 
-## Installation
+WLED's firmware already speaks JSON on its serial port: anything starting with `{` is
+handed to `deserializeState()`, and `{"v":true}` makes it answer with full state. The
+bridge translates the official UI's HTTP requests onto that channel.
 
-Python 3.10 ou plus récent, et un module WLED relié en USB.
+Developed and tested against WLED 16.0.1 on an ESP32-PICO-D4, 144 LEDs, macOS 27 on Apple
+Silicon. The bridge itself is plain Python and has nothing macOS-specific; the menu bar
+app described below does.
+
+## Install
+
+Python 3.10 or newer, and a WLED module on USB.
 
 ```bash
 python3 -m venv .venv
@@ -21,481 +29,484 @@ python3 -m venv .venv
 ./run.sh --open
 ```
 
-Le port série est détecté automatiquement. Options utiles :
+The serial port is detected automatically. Useful options:
 
-| Option | Effet |
+| Option | Effect |
 | --- | --- |
-| `--list-ports` | liste les ports série candidats et quitte |
-| `--port /dev/cu.xxx` | force le port |
-| `--http-port 8723` | port HTTP (défaut 8723) |
-| `--listen localhost,tailscale,netbird` | adresses d'écoute (défaut) |
-| `--poll 2.0` | intervalle de rafraîchissement de l'état, en secondes |
-| `--baud 115200` | débit série |
+| `--list-ports` | list candidate serial ports and exit |
+| `--port /dev/cu.xxx` | force the port |
+| `--http-port 8723` | HTTP port (default 8723) |
+| `--listen localhost` | listen addresses (default: loopback only) |
+| `--lang en` | interface language on first run |
+| `--poll 2.0` | state refresh interval, in seconds |
+| `--baud 115200` | serial baud rate |
 
-Le port série est pris en **exclusivité** : une seconde instance du pont, un moniteur
-série ou LedFx lancé en parallèle est refusé avec un message explicite au lieu de se
-partager silencieusement le flux. Sans ce verrou, les deux lecteurs se volent les
-réponses et l'interface reste vide alors que la liaison paraît « connectée ».
+The serial port is held **exclusively**: a second bridge instance, a serial monitor or
+LedFx started alongside is refused with a clear message instead of silently sharing the
+stream. Without that lock the two readers steal each other's answers, and the interface
+stays empty while the link still looks "connected".
 
-Deux pages :
+Two pages:
 
-- `http://127.0.0.1:8723/` — l'interface WLED officielle ;
-- `http://127.0.0.1:8723/bridge` — état de la liaison, presets, flash firmware.
+- `http://127.0.0.1:8723/` — the official WLED interface;
+- `http://127.0.0.1:8723/bridge` — link status, presets, audio, firmware flashing.
 
-## Ce qui fonctionne
+## What works
 
-Tout le contrôle temps réel : alimentation, luminosité, couleurs, effets, palettes,
-vitesse/intensité, segments, nightlight, transitions, chargement de presets.
-Les listes d'effets et de palettes, leurs métadonnées de curseurs et les dégradés
-d'aperçu sont servis par le pont (voir *Données statiques*), la prévisualisation
-live des pixels aussi.
+All real-time control: power, brightness, colours, effects, palettes, speed and
+intensity, segments, nightlight, transitions, preset loading. Effect and palette lists,
+their slider metadata and the preview gradients are served by the bridge (see *Static
+data*), and so is the live pixel preview.
 
 | Endpoint | Source |
 | --- | --- |
-| `/json/si`, `/json/state`, `/json/info` | port série, en direct |
-| `POST /json`, `/json/state`, `/json/si` | port série, en direct |
-| `/json/effects`, `/json/palettes`, `/json/fxdata`, `/json/palx` | base statique générée |
-| `/json/live` et trames binaires WebSocket | commande série `L` (lecture des pixels) |
-| `/presets.json` | cache local du pont |
-| `/ws` | diffusion d'état + commandes + liveview |
+| `/json/si`, `/json/state`, `/json/info` | serial port, live |
+| `POST /json`, `/json/state`, `/json/si` | serial port, live |
+| `/json/effects`, `/json/palettes`, `/json/fxdata`, `/json/palx` | generated static database |
+| `/json/live` and binary WebSocket frames | serial command `L` (pixel readback) |
+| `/presets.json` | the bridge's local cache |
+| `/ws` | state broadcast, commands, liveview |
 
-## Ce qui n'est pas possible, et pourquoi
+## What is not possible, and why
 
-Le handler série de WLED n'appelle que `deserializeState()`. **La configuration
-(`deserializeConfig`) n'est jamais atteinte par le port série.** Les pages de
-réglages, l'éditeur de fichiers et la mise à jour OTA ne vivent que dans le serveur
-HTTP du module, hors d'atteinte ici. Ces URL renvoient une page d'explication.
+WLED's serial handler only ever calls `deserializeState()`. **Configuration
+(`deserializeConfig`) is never reached over the serial port.** The settings pages, the
+file editor and OTA updates live only in the device's HTTP server, out of reach here.
+Those URLs return an explanatory page.
 
-Pour changer un réglage durable (nombre de LEDs, broche, Wi-Fi…), il faut passer par
-le réseau une fois, ou reflasher une image qui embarque la configuration voulue.
+Changing a persistent setting (LED count, pin, WiFi…) means going over the network once,
+or flashing an image that carries the configuration you want.
 
 ### Presets
 
-Les *noms* de presets sont dans `/presets.json` sur le système de fichiers du module,
-illisible par le port série. Le pont maintient donc son propre cache :
+Preset *names* live in the device's filesystem and never travel over the serial port, so
+the bridge keeps its own list in `data/presets.json`. Renaming in `/bridge` writes
+nothing to the module. Scanning loads each slot in turn and restores the previous state
+afterwards — the LEDs will visibly cycle.
 
-- un preset chargé depuis l'interface est mémorisé automatiquement ;
-- la page `/bridge` permet de **détecter** les emplacements occupés (1 à N) et de les
-  **renommer localement** — ce renommage n'écrit rien sur le module ;
-- enregistrer un preset depuis l'interface WLED (`psave`) écrit bien sur le module
-  *et* met le cache à jour.
+## Firmware update over USB
 
-Attention : dans l'interface officielle, renommer un preset le **ré-enregistre** avec
-l'état courant. Pour un simple libellé, utilisez le renommage local de `/bridge`.
+The `/bridge` page uploads a `.bin` and runs esptool with the serial port released for
+the duration, streaming its log back. By default only the **application** is written at
+`0x10000`, so bootloader, partition table, filesystem and configuration survive.
 
-## Mise à jour du firmware par USB
+> The bundled effect database must match the firmware you flash, or effect names will be
+> off by one. The `/bridge` page reports the mismatch.
 
-La page `/bridge` flashe via le bootloader série de l'ESP32 (esptool). Le pont libère
-le port pendant l'opération puis le reprend.
+### Backup and rollback
 
-- **Tester le bootloader** lance un `flash-id` : aucune écriture, vérifie seulement que
-  la carte entre bien en mode bootloader.
-- Le flash écrit par défaut la seule **application** en `0x10000` : bootloader, table de
-  partitions, système de fichiers et configuration sont conservés.
-- Pour une image complète fusionnée, mettre l'adresse à `0x0`.
-- Le fichier est refusé s'il ne commence pas par la signature ESP `0xE9`.
+Before reflashing, keep a way back: a full flash image, the device state (`/json`) and
+the effect database for the version in place.
 
-Images officielles : `WLED_<version>_ESP32.bin` dans les releases GitHub du projet WLED.
-Vérifier le `sha256` annoncé par l'API GitHub avant d'écrire.
+> `backup/` is **excluded from the repository** by `.gitignore`, and should stay that
+> way. A full image contains the NVS partition, where the ESP32 stores the WiFi SSID and
+> key in clear text, plus the module's MAC address. It is a personal backup, not a
+> project artifact.
 
-> Après un flash vers une autre version de WLED, régénérez la base statique (ci-dessous),
-> sinon les noms d'effets seront décalés. La page `/bridge` signale l'écart.
-
-### Sauvegarde et retour arrière
-
-Avant de reflasher, garder de quoi revenir en arrière : une image intégrale du flash,
-l'état du module (`/json`) et la base d'effets de la version en place.
-
-> `backup/` est **exclu du dépôt** par `.gitignore`, et doit le rester. Une image
-> intégrale contient la partition NVS, où l'ESP32 stocke le SSID et la clé Wi-Fi en
-> clair, ainsi que l'adresse MAC du module. C'est une sauvegarde personnelle, pas un
-> artefact de projet.
-
-Lecture d'une image complète et restauration :
+Reading a full image and restoring it:
 
 ```bash
 ./.venv/bin/python -m esptool --chip esp32 --port /dev/cu.usbserial-XXXX --baud 115200 \
-  read-flash 0 0x400000 backup/flash-complet.bin
+  read-flash 0 0x400000 backup/full-flash.bin
 ./.venv/bin/python -m esptool --chip esp32 --port /dev/cu.usbserial-XXXX --baud 115200 \
-  write-flash 0x0 backup/flash-complet.bin
+  write-flash 0x0 backup/full-flash.bin
 ```
 
-Arrêter le pont avant : il garde le port en exclusivité. Le changement de débit après
-le stub échoue sur cet adaptateur, rester à 115200.
+Stop the bridge first: it holds the port exclusively. Changing baud rate after the stub
+loader failed on this adapter, so stay at 115200.
 
-### Passage de la 0.15.x à la 16.x
+### Going from 0.15.x to 16.x
 
-Même table de partitions (`WLED_ESP32_4MB_1MB_FS.csv`), donc l'écriture de la seule
-application en `0x10000` suffit et la configuration est conservée. La plateforme change
-en revanche d'ESP-IDF 3.3 à 4.4.8 : le bootloader en flash reste celui de la 0.15.
-Testé ici sur ESP32-PICO-D4, le module démarre correctement.
+Same partition table (`WLED_ESP32_4MB_1MB_FS.csv`), so writing the application alone at
+`0x10000` is enough and the configuration is kept. The platform does jump from ESP-IDF
+3.3 to 4.4.8 while the bootloader in flash stays the 0.15 one. Tested here on an
+ESP32-PICO-D4; the module boots fine.
 
-## Données statiques
+## Static data
 
-`data/wled-data.json` contient les 220 noms d'effets, leurs métadonnées de curseurs,
-les 72 noms de palettes et les dégradés d'aperçu. Ces données sont extraites des
-sources WLED taguées, pas saisies à la main :
+`data/wled-data.json` holds the 220 effect names, their slider metadata, the 72 palette
+names and the preview gradients. It is extracted from tagged WLED sources, not typed by
+hand:
 
 ```bash
-./.venv/bin/python tools/gen-data.py v16.0.1      # télécharge les sources du tag et régénère
-./.venv/bin/python tools/gen-data.py --src ./srcs # depuis des sources locales
+./.venv/bin/python tools/gen-data.py v16.0.1      # download the tag's sources and regenerate
+./.venv/bin/python tools/gen-data.py --src ./srcs # from local sources
 ```
 
-Le générateur lit `FX.h` (indices `FX_MODE_*`), les chaînes `_data_FX_MODE_*` de `FX.cpp`
-dans l'ordre d'enregistrement de `setupEffectData()`, `JSON_palette_names` de `FX_fcn.cpp`,
-les dégradés et les palettes 16 couleurs. Il reproduit la logique de `serializeModeNames`,
-`serializeModeData` et `serializePalettes` de WLED.
+The generator reads `FX.h` (the `FX_MODE_*` indices), the `_data_FX_MODE_*` strings in
+`FX.cpp` in `setupEffectData()` registration order, `JSON_palette_names` from
+`FX_fcn.cpp`, the gradients and the 16-colour palettes. It mirrors WLED's own
+`serializeModeNames`, `serializeModeData` and `serializePalettes`.
 
-Les deux dispositions de sources sont reconnues. Jusqu'à la 0.15.x les dégradés sont dans
-`wled00/palettes.h` et les palettes 16 couleurs viennent de FastLED. À partir de la 16.x
-FastLED n'est plus une dépendance : tout est dans `wled00/palettes.cpp`, et les noms de
-couleurs dans `wled00/src/dependencies/fastled_slim/fastled_slim.h`. Le générateur choisit
-en testant la présence de `palettes.h` sur le tag demandé.
+Both source layouts are recognised. Up to 0.15.x the gradients live in
+`wled00/palettes.h` and the 16-colour palettes come from FastLED. From 16.x on, FastLED
+is no longer a dependency: everything is in `wled00/palettes.cpp`, with the colour names
+in `wled00/src/dependencies/fastled_slim/fastled_slim.h`. The generator picks a layout by
+testing whether `palettes.h` exists on the requested tag.
 
-Le pont compare `fxcount`, `palcount` et `ver` remontés par le module avec cette base
-et signale toute divergence dans `/bridge/status`.
+The bridge compares the `fxcount`, `palcount` and `ver` reported by the module against
+this database and flags any divergence in `/bridge/status`.
 
-## Interface vendorisée
+## Vendored interface
 
-`vendor/` contient l'UI officielle WLED 0.15.0, qui pilote sans problème un module en
-16.0.1 puisque les listes d'effets et de palettes viennent du pont. Deux modifications :
+`vendor/` holds the official WLED 0.15.0 UI, which drives a 16.0.1 module without trouble
+since the effect and palette lists come from the bridge. Two modifications:
 
-```
-index.js  : "ws://"+window.location.hostname+"/ws"
-         →  "ws://"+window.location.host+"/ws"
+- a **Bridge** button in the tab bar, linking to `/bridge`;
+- `public/skin.css`, the theming hook WLED itself provides, served as is.
 
-index.htm : bouton « Pont » ajouté dans la barre du haut, après « Config »
-```
+## Language
 
-L'UI suppose d'être servie sur le port 80 et perdait le port dans l'URL WebSocket.
+The interface ships in **English (default) and French**. On first run the bridge picks a
+language from the computer's locale; the selector in the top-right corner of `/bridge`
+overrides it, and the choice is stored and shared by the web page and the macOS menu.
 
-Le bouton « Pont » ouvre `/bridge` ; la page `/bridge` a son propre lien de retour. Son
-icône `⇄` n'appartient pas à la police `WIcons` de WLED, qui ne contient que ses propres
-glyphes : `public/skin.css` la repasse donc en police courante. Ce fichier est le point
-d'entrée prévu par WLED pour personnaliser le thème, servi tel quel par le pont.
+Renderer and palette names are stable English keys on the API (`spectrum`, `bass`,
+`rainbow`, `forest`…) and only translated for display, so saved settings survive a
+language change. Terminal output is English only.
 
-## Déclencheurs macOS
+## macOS menu bar app
 
-macOS n'offre **aucune API pour lire les notifications d'autres applications** : ni
-`UserNotifications`, qui ne voit que les siennes, ni `DistributedNotificationCenter`, trop
-limité. C'est un choix de conception d'Apple. Slack sur Mac reste donc hors de portée,
-quelle que soit la langue dans laquelle on écrit l'app.
+`app/` builds a self-contained `WLED USB.app`: it embeds its own CPython, starts the
+bridge, captures system audio, and puts a menu in the status bar. `./app/build.sh`
+downloads and checksums a relocatable interpreter, compiles the Swift, and signs the
+bundle.
 
-Ce qui est observable sans aucune autorisation, en revanche, l'app le surveille. Chaque
-déclencheur s'active séparément dans le menu, et poste sur `/bridge/notify` comme le ferait
-`notify.sh`.
+Signing uses a self-signed certificate named `WLED USB Dev` (override with
+`WLED_SIGN_IDENTITY`). Without one the build falls back to ad-hoc signing, and macOS
+re-asks for the audio permission on every rebuild. Apple Silicon only.
 
-| déclencheur | source | motif |
+### Triggers
+
+macOS offers **no API to read other applications' notifications**: neither
+`UserNotifications`, which only sees its own, nor `DistributedNotificationCenter`, which
+is too limited. That is an Apple design decision, so Slack on the Mac is out of reach
+whatever language the app is written in.
+
+What *is* observable without any permission, the app watches. Each trigger is enabled
+separately from the menu and posts to `/bridge/notify` exactly as `notify.sh` would.
+
+| Trigger | Source | Pattern |
 | --- | --- | --- |
-| Réveil du Mac | `NSWorkspace.didWakeNotification` | `info` |
-| Verrouillage / déverrouillage | `com.apple.screenIsLocked` / `…Unlocked` | `info` |
-| Une app surveillée démarre ou se ferme | `NSWorkspace.did{Launch,Terminate}Application` | `slack` |
-| Tailscale ou NetBird tombe | balayage `getifaddrs` d'une adresse en `100.64/10` | `urgent` |
-| Réunion dans 5 minutes | EventKit | `call` |
+| Mac wakes up | `NSWorkspace.didWakeNotification` | `info` |
+| Screen locked / unlocked | `com.apple.screenIsLocked` / `…Unlocked` | `info` |
+| A watched app starts or quits | `NSWorkspace.did{Launch,Terminate}Application` | `slack` |
+| Tailscale or NetBird goes down | `getifaddrs` sweep for a `100.64/10` address | `urgent` |
+| Meeting in 5 minutes | EventKit | `call` |
 
-La liste des applications surveillées se choisit dans *Déclencheurs → Applications
-surveillées* : le sous-menu liste les apps en cours avec celles déjà cochées, et la
-sélection est gardée dans les préférences de l'app.
+Watched applications are chosen in *Triggers → Watched applications*: the submenu lists
+running apps along with those already ticked, and the selection is kept in the app's
+preferences.
 
-Seule la réunion demande une autorisation — celle du calendrier, étroite et révocable.
-Elle n'est demandée qu'au moment où vous cochez la ligne, jamais au lancement.
+Only the meeting trigger needs a permission — calendar access, narrow and revocable. It
+is requested when you tick that line, never at launch.
 
-### Schéma d'URL
+### URL scheme
 
-L'app enregistre `wledusb://`, ce qui met le ruban à portée de n'importe quoi : un script,
-une automatisation, un Stream Deck, ou l'action **Ouvrir l'URL** de Raccourcis.
+The app registers `wledusb://`, which puts the strip within reach of anything: a script,
+an automation, a Stream Deck, or the **Open URL** action in Shortcuts.
 
 ```bash
-open "wledusb://notify?pattern=slack&title=Build%20termin%C3%A9&app=CI"
+open "wledusb://notify?pattern=slack&title=Build%20done&app=CI"
 ```
 
-Paramètres : `pattern`, `title`, `app`, `priority`. C'est la même file que les
-notifications KDE Connect, donc les priorités et les anti-répétitions s'appliquent.
+Parameters: `pattern`, `title`, `app`, `priority`. It is the same queue as KDE Connect
+notifications, so priorities and anti-repeat rules apply.
 
-## Son du Mac vers les LEDs
+## Computer audio to the LEDs
 
-L'audio sync de WLED passe par UDP et n'existe pas sur le port série : `handleSerial()`
-ne connaît que l'Adalight, le TPM2, l'Improv et le JSON. L'analyse se fait donc côté Mac,
-et seuls des pixels descendent le câble.
+WLED's audio sync runs over UDP and does not exist on the serial port: `handleSerial()`
+only knows Adalight, TPM2, Improv and JSON. So the analysis happens on the computer, and
+only pixels go down the cable.
 
 ```
-app (Swift)  ──tap Core Audio──▶ FFT vDSP ──24 bandes──▶ pont (Python) ──Adalight──▶ module
+app (Swift) ──Core Audio tap──▶ vDSP FFT ──24 bands──▶ bridge (Python) ──Adalight──▶ module
 ```
 
-L'app ouvre un *Core Audio process tap* : ni pilote, ni mot de passe administrateur, et
-l'autorisation demandée est « enregistrement audio du système », pas l'écran. Elle capte
-le mix quel que soit le périphérique de sortie, casque compris, sans périphérique de
-sortie multiple à fabriquer. La capture ne démarre que sur clic dans le menu.
+The app opens a *Core Audio process tap*: no driver, no administrator password, and the
+permission it asks for is "system audio recording", not screen recording. It captures the
+mix whatever the output device is, headphones included, with no multi-output device to
+build. Capture only starts when you click the menu item.
 
-Les bandes arrivent sur l'entrée standard du pont (`--audio-stdin`), trames
-`A5 5A <n> <rms> <n octets>`.
+Bands arrive on the bridge's standard input (`--audio-stdin`), as
+`A5 5A <n> <rms> <n bytes>` frames.
 
-Chaque bande est normalisée séparément : le moteur garde un plafond glissant par
-bande et ramène le niveau dessus. Sans ça, les graves saturent pendant que les aigus restent
-noirs, et le ruban ne bouge presque pas. Les pixels gardent une traîne (`PIXEL_DECAY`)
-pour adoucir le scintillement.
+Each band is normalised separately: the engine keeps a sliding ceiling per band and
+scales the level against it. Without that, the bass saturates while the treble stays
+black and the strip barely moves. Pixels keep a trail (`PIXEL_DECAY`) to soften flicker.
 
-Les palettes sont des rampes de couleurs **saturées**, pas des dégradés sombre-vers-clair :
-la luminosité vient du niveau sonore, pas de la rampe. Une première teinte sombre
-assombrirait la zone des graves, qui est justement la plus visible.
+Palettes are ramps of **saturated** colours, not dark-to-light gradients: brightness comes
+from the sound level, not from the ramp. A dark first stop would dim the bass zone, which
+is exactly the most visible one.
 
-Normaliser ne suffit pas : le ruban ne suivait plus que les gros écarts. Deux réglages
-rattrapent les petites variations, visibles dans le panneau `/bridge` :
+Normalising is not enough on its own — the strip only followed the large swings. Several
+settings recover the small variations, all exposed in the `/bridge` panel:
 
-| réglage | rôle |
+| Setting | Role |
 | --- | --- |
-| `curve` (finesse) | exposant appliqué au niveau normalisé. Plus il est bas, plus les faibles niveaux remontent : à 0,55, un niveau de 0,02 s'affiche à 0,19 au lieu de rester noir. |
-| `palette` | rampe de couleurs du rendu : `arc-en-ciel`, `braise`, `océan`, `forêt`, `néon`, `glace`, `coucher`. |
-| `floor` (plancher) | lueur de fond appliquée **en sortie**, sur les LEDs que le rendu laisse noires. |
-| `auto` (gain automatique) | ajuste le gain tout seul selon le volume de la source. Le curseur `gain` devient alors le taux de remplissage visé aux crêtes. |
+| `curve` (detail) | exponent applied to the normalised level. The lower it is, the more quiet levels are lifted: at 0.55 a level of 0.02 shows at 0.19 instead of staying black. |
+| `palette` | colour ramp: `rainbow`, `ember`, `ocean`, `forest`, `neon`, `ice`, `sunset`. |
+| `floor` | background glow applied **at the output**, on the LEDs the renderer leaves black. |
+| `auto` | automatic gain: follows the source's loudness on its own. The `gain` slider then becomes the fill level aimed for at peaks. |
 
-Une porte de présence, calée sur le RMS brut, garde le ruban éteint au silence — sans
-elle, le plancher allumerait les LEDs en permanence.
+A presence gate, keyed on the raw RMS, keeps the strip dark in silence — without it the
+floor would light the LEDs permanently.
 
-La normalisation par bande gomme le **timbre**, pas le **volume** : un podcast et un
-morceau masterisé fort n'arrivent pas au même niveau, et il fallait reprendre le curseur
-de gain à chaque fois. Le gain automatique ferme cette boucle. Chaque rendu déclare dans
-`DRIVES` la grandeur qu'il multiplie par le gain — crête des bandes pour `spectre`,
-moyenne des graves pour `graves`, etc. — et le moteur suit cette grandeur avec un
-détecteur de crête à attaque rapide (0,3 par image) et relâchement lent (0,01, soit
-quelques secondes). Le gain appliqué vaut `gain × (1 / enveloppe)`, borné entre 0,4× et
-6×, et affiché en direct sous le curseur.
+Per-band normalisation flattens **timbre**, not **volume**: a podcast and a loudly
+mastered track do not arrive at the same level, and the gain slider had to be nudged every
+time. The automatic gain closes that loop. Each renderer declares in `DRIVES` the quantity
+it multiplies by the gain — peak band for `spectrum`, bass average for `bass`, and so on —
+and the engine follows it with a peak detector with fast attack (0.3 per frame) and slow
+release (0.01, a few seconds). The applied gain is `gain × (1 / envelope)`, clamped between
+0.4× and 6×, and shown live under the slider.
 
-L'asymétrie attaque/relâchement est ce qui compte : descendre vite évite de saturer sur
-un coup de grosse caisse, remonter lentement évite de pomper entre deux couplets. La
-boucle est gelée tant que la porte de présence est fermée, sinon le gain partirait au
-plafond pendant les silences et le premier son reviendrait en pleine face.
+The attack/release asymmetry is what matters: coming down fast avoids clipping on a kick
+drum, going back up slowly avoids pumping between verses. The loop is frozen while the
+presence gate is shut, otherwise the gain would run to the ceiling during silences and the
+first sound would come back in your face.
 
-Deux leçons tirées à l'usage. Le plancher a d'abord été appliqué au **niveau**, avant le
-rendu : sans effet visible, puisque `spectre` et `graves` encodent l'énergie en longueur
-de barre et que 3 % d'une zone font un tiers de LED. Il agit maintenant sur les pixels
-noirs en sortie, donc dans tous les rendus.
+Two lessons from use. The floor was first applied to the **level**, before rendering: no
+visible effect, since `spectrum` and `bass` encode energy as bar length and 3% of a zone is
+a third of an LED. It now acts on black pixels at the output, so it works in every
+renderer.
 
-Et normaliser chaque bande sur son propre maximum supprime le relief entre bandes : le
-ruban s'allume uniformément et ne raconte plus rien. `AGC_MIX` garde 35 % du niveau
-absolu pour que les graves restent plus forts que les aigus.
+And normalising each band against its own maximum removes the relief between bands: the
+strip lights up uniformly and stops telling you anything. `AGC_MIX` keeps 35% of the
+absolute level so the bass stays louder than the treble.
 
-| rendu | ce qu'il fait |
+| Renderer | What it does |
 | --- | --- |
-| `spectre` | six barres en miroir depuis le centre, une par groupe de fréquences |
-| `graves` | barre qui grandit depuis le centre selon l'énergie basse |
-| `onde` | impulsion lancée sur chaque attaque de grave, qui se propage |
-| `pulsation` | ruban uni, teinte selon le centre spectral |
+| `spectrum` | six mirrored bars from the centre, one per frequency group |
+| `bass` | a bar growing from the centre with low-end energy |
+| `wave` | a pulse launched on each bass attack, travelling outwards |
+| `pulse` | the whole strip in one colour, hue following the spectral centroid |
 
-| réglage | effet |
+| Setting | Effect |
 | --- | --- |
-| `--audio-fps` | cadence LED, 25 par défaut |
-| `--audio-mode` | rendu au démarrage |
-| `--audio-config` | fichier des réglages, relus au lancement et réécrits à chaque changement |
-| `POST /bridge/audio` | `{"mode":…, "gain":…, "auto":…, "fps":…, "curve":…, "floor":…}` à chaud |
-| `GET /bridge/audio` | images émises, abandonnées, niveau, erreur |
+| `--audio-fps` | LED frame rate, 25 by default |
+| `--audio-mode` | renderer at startup |
+| `--audio-config` | settings file, read at launch and rewritten on every change |
+| `POST /bridge/audio` | `{"mode":…, "gain":…, "auto":…, "fps":…, "curve":…, "floor":…}` live |
+| `GET /bridge/audio` | frames sent and dropped, level, error |
 
-Une notification met l'audio en pause le temps du flash, puis le relance.
+A notification pauses the audio for the duration of its flash, then resumes it.
 
-### Adalight plutôt que TPM2
+### Adalight rather than TPM2
 
-Les deux fonctionnent, mais le compteur TPM2 de WLED divise chaque octet de longueur
-séparément : `(0x01×256)/3 + 0xB0/3` donne 143 au lieu de 144. **La dernière LED reste
-éteinte.** Mesuré sur le module : 143/144 en TPM2, 144/144 en Adalight, dont le compteur
-est exact. Le pont envoie donc de l'Adalight.
+Both work, but WLED's TPM2 counter divides each length byte separately:
+`(0x01×256)/3 + 0xB0/3` gives 143 instead of 144. **The last LED stays dark.** Measured on
+the module: 143/144 over TPM2, 144/144 over Adalight, whose counter is exact. So the bridge
+sends Adalight.
 
-### Débit et désynchronisation
+### Baud rate and desynchronisation
 
-Mesuré sur ce module, trame de 438 octets : **26,5 images/s à 115 200 bauds**, et
-**236 à 921 600** après un `0xB5`. Le ruban se rafraîchit à 43 images/s au repos, donc
-115 200 suffit largement et reste le défaut.
+Measured on this module with a 438-byte frame: **26.5 frames/s at 115200 baud**, and **236
+at 921600** after a `0xB5`. The strip refreshes at 43 frames/s when idle, so 115200 is
+plenty and stays the default.
 
-En flux à 25 images/s, la cadence du ruban retombe mesurément à 17 images/s : à 115 200
-une trame met 38 ms à passer, et l'ESP32 partage ce temps avec son propre affichage.
-C'est fluide à l'œil, mais c'est le plafond réel de ce débit.
+Streaming at 25 frames/s, the strip's own rate measurably drops to 17: at 115200 a frame
+takes 38 ms to arrive, and the ESP32 shares that time with its own output. It looks smooth,
+but it is the real ceiling at that rate.
 
-> Changer de débit en plein flux est dangereux. WLED lit `0xB0`–`0xB7` comme des
-> commandes dès que son automate est entre deux trames ; après une désynchronisation,
-> un simple octet de pixel vaut une commande. C'est arrivé pendant les essais : le
-> module s'est retrouvé à 460 800 sans qu'on le lui demande. Si ça vous arrive,
-> débrancher et rebrancher le module le ramène à sa valeur configurée.
+> Changing baud rate mid-stream is dangerous. WLED reads `0xB0`–`0xB7` as commands as soon
+> as its state machine sits between frames; after a desynchronisation, an ordinary pixel
+> byte becomes a command. It happened during testing: the module ended up at 460800 without
+> being asked. If it happens to you, unplugging and replugging the module brings it back to
+> its configured value.
 
-## Streaming audio-réactif (LedFx, Adalight)
+## Audio-reactive streaming (LedFx, Adalight)
 
-Le même handler série accepte aussi **Adalight** et **TPM2**. Un logiciel comme LedFx
-peut donc piloter le module en USB avec un device de type *Adalight* (115200 bauds,
-144 LEDs). Les effets sont alors calculés sur l'ordinateur, contrairement au pont qui
-pilote les effets internes de WLED.
+The same serial handler also accepts **Adalight** and **TPM2**, so software like LedFx can
+drive the module over USB with an *Adalight* device (115200 baud, 144 LEDs). Effects are
+then computed on the computer, unlike the bridge, which drives WLED's internal effects.
 
-Un seul programme à la fois peut ouvrir le port : arrêtez le pont avant de lancer LedFx.
-Le verrou exclusif fait que l'un des deux refusera de démarrer plutôt que de corrompre
-la liaison de l'autre.
+Only one program at a time can open the port: stop the bridge before starting LedFx. The
+exclusive lock means one of the two refuses to start rather than corrupting the other's
+link.
 
 ## Notifications
 
-Le bandeau sert d'indicateur : à l'arrivée d'une notification, il interrompt la scène
-en cours, joue un motif coloré, puis **restaure exactement l'état précédent**
-(alimentation, luminosité, effet, palette, bornes de segment, couleurs).
+The strip doubles as an indicator: when a notification arrives it interrupts the current
+scene, plays a coloured pattern, then **restores the previous state exactly** — power,
+brightness, effect, palette, segment bounds, colours.
 
 ### Sources
 
-**KDE Connect** — les notifications de votre téléphone, relayées par KDE Connect, sont
-lues sur le bus D-Bus privé que son application macOS lance pour elle-même. Le pont
-découvre le bus tout seul en sondant les sockets `/tmp/dbus-*` à la recherche du nom
-`org.kde.kdeconnect`, puis interroge `activeNotifications` toutes les 2 secondes et
-réagit aux nouvelles entrées.
+**KDE Connect** — phone notifications relayed by KDE Connect are read on the private D-Bus
+that its macOS application starts for itself. The bridge finds the bus on its own by
+probing `/tmp/dbus-*` sockets for the name `org.kde.kdeconnect`, then polls
+`activeNotifications` every 2 seconds and reacts to new entries.
 
-Il ne lit que `appName` et `title`. **Le corps des messages n'est jamais lu, ni journalisé,
-ni envoyé nulle part.** Le journal reste en mémoire : il disparaît à l'arrêt du pont.
+It reads only `appName` and `title`. **Message bodies are never read, logged or sent
+anywhere.** The log stays in memory and disappears when the bridge stops.
 
-Prérequis : `gdbus` (`brew install glib`) et KDE Connect appairé à l'appareil.
-Désactivable avec `--no-kdeconnect`.
+Requires `gdbus` (`brew install glib`) and KDE Connect paired with the device. Disable it
+with `--no-kdeconnect`.
 
-**Scripts** — une API HTTP et un script shell, pour déclencher depuis n'importe quoi :
+**Scripts** — an HTTP API and a shell script, to fire from anything:
 
 ```bash
-./notify.sh CI "build cassé" urgent
-./notify.sh Slack "nouveau message"
-make test || ./notify.sh Tests "échec" urgent
+./notify.sh CI "build broken" urgent
+./notify.sh Slack "new message"
+make test || ./notify.sh Tests "failed" urgent
 ```
 
 ```bash
 curl -X POST http://127.0.0.1:8723/bridge/notify \
      -H 'Content-Type: application/json' \
-     -d '{"app":"Jenkins","title":"deploy terminé","pattern":"info"}'
+     -d '{"app":"Jenkins","title":"deploy done","pattern":"info"}'
 ```
 
-`WLED_USB_URL` change l'adresse visée par `notify.sh`.
+`WLED_USB_URL` changes the address `notify.sh` targets.
 
-### Motifs et règles
+### Patterns and rules
 
-Réglables dans la page `/bridge`, stockés dans `data/notifications.json`. Un motif
-définit une couleur, un nombre de LEDs, une luminosité et un nombre de flashs ; une
-règle associe le nom d'une application à un motif. Sans règle correspondante, le motif
-`defaultPattern` s'applique.
+Edited in the `/bridge` page, stored in `data/notifications.json`. A pattern defines a
+colour, an LED count, a brightness and a number of flashes; a rule maps an application name
+to a pattern. With no matching rule, `defaultPattern` applies.
 
-Les notifications identiques reçues dans la fenêtre `coalesceSeconds` sont groupées,
-et `quietHours` permet de museler le bandeau sur une plage horaire.
+Identical notifications received within the `coalesceSeconds` window are grouped, and
+`quietHours` silences the strip over a time range.
 
-### Budget de courant
+### Current budget
 
-**À lire si vos LEDs sont alimentées par le microcontrôleur.** Le limiteur de courant
-de WLED (*Automatic Brightness Limiter*) vaut 2000 mA par défaut, ce qu'une
-alimentation USB ne fournit pas. Allumer les 144 LEDs en couleur vive fait chuter la
-tension et **le module redémarre** — ce n'est pas propre aux notifications, toute scène
-vive en plein bandeau le provoque.
+**Read this if your LEDs are powered by the microcontroller.** WLED's current limiter
+(*Automatic Brightness Limiter*) defaults to 2000 mA, which a USB supply does not provide.
+Lighting all 144 LEDs in a bright colour drops the voltage and **the module reboots** — not
+specific to notifications, any bright full-strip scene does it.
 
-Relevés sur un bandeau de 144 LEDs alimenté en USB :
+Measured on a 144-LED strip powered over USB:
 
-| Scène | Conso estimée par WLED |
+| Scene | Current estimated by WLED |
 | --- | --- |
 | 20 LEDs @ bri 140 | 389 mA |
 | 40 LEDs @ bri 140 | 659 mA |
 | 144 LEDs @ bri 30 | 536 mA |
 | 144 LEDs @ bri 60 | 952 mA |
-| 144 LEDs @ bri 160, couleur vive | coupure |
+| 144 LEDs @ bri 160, bright colour | brownout |
 
-Deux protections :
+Two protections:
 
-1. Régler le limiteur du module (*Maximum Current*) sur une valeur réaliste — 400 à
-   500 mA pour une alimentation USB. Ce réglage n'est **pas accessible par le port
-   série** : il faut passer une fois par le serveur web du module, par exemple en se
-   connectant à son point d'accès (`http://4.3.2.1/settings/leds`).
-2. Côté pont, les motifs n'allument qu'une portion du bandeau et leur luminosité est
-   réduite automatiquement pour tenir sous `powerBudgetMa`, lui-même plafonné par la
-   limite que le module annonce dans `info.leds.maxpwr`.
+1. Set the module's limiter (*Maximum Current*) to a realistic value — 400 to 500 mA for a
+   USB supply. That setting is **not reachable over the serial port**: you have to go
+   through the device's web server once, for example via its access point
+   (`http://4.3.2.1/settings/leds`).
+2. On the bridge side, patterns light only part of the strip and their brightness is
+   reduced automatically to stay under `powerBudgetMa`, itself capped by the limit the
+   module reports in `info.leds.maxpwr`.
 
-### Slack sur le Mac
+### Slack on the Mac
 
-Non implémenté, et pas par choix. Sans jeton d'API, lire les notifications de
-l'application Slack du Mac suppose une permission système :
+Not implemented, and not by choice. Without an API token, reading the Mac Slack app's
+notifications requires a system permission:
 
-- la base du Centre de notifications (`group.com.apple.usernoted`) exige un **accès
-  disque complet** ;
-- lire le badge du Dock via System Events exige une autorisation **Automation**
-  (sinon erreur `-1743`) ;
-- `lsappinfo` ne renvoie plus rien d'exploitable sur macOS 27.
+- the Notification Center database (`group.com.apple.usernoted`) needs **Full Disk
+  Access**;
+- reading the Dock badge through System Events needs an **Automation** permission
+  (otherwise error `-1743`);
+- `lsappinfo` no longer returns anything usable on macOS 27.
 
-Si Slack tourne sur le téléphone, ses notifications arrivent par KDE Connect avec
-`appName = "Slack"`, et la règle correspondante est déjà en place.
+If Slack runs on the phone, its notifications arrive through KDE Connect with
+`appName = "Slack"`, and the matching rule is already in place.
 
 ## Architecture
 
 ```
-wled_usb/serialport.py  ouverture termios brute (CLOCAL, sans toucher DTR/RTS)
-wled_usb/link.py        transactions série, parseur lignes JSON + trames TPM2, reconnexion
-wled_usb/bridge.py      cache d'état, polling, diffusion WebSocket, liveview
-wled_usb/httpd.py       serveur HTTP + WebSocket, émulation de l'API WLED
-wled_usb/flash.py       pilotage d'esptool avec libération du port
-wled_usb/presets.py     cache local des presets
-wled_usb/data.py        base statique effets/palettes
-wled_usb/audio.py       rendus audio-réactifs, gain automatique, émission Adalight
-wled_usb/listen.py      résolution des adresses d'écoute (localhost, Tailscale, NetBird)
-wled_usb/ws.py          cadrage WebSocket minimal
-wled_usb/notify.py      moteur de notifications : motifs, file, budget, restauration
-wled_usb/kdeconnect.py  source KDE Connect (découverte du bus, veille D-Bus)
-app/Sources/            application macOS : capture audio, FFT, menu, déclencheurs
-public/                 pages propres au pont (/bridge, page d'indisponibilité)
-vendor/                 interface web WLED redistribuée
-tools/gen-data.py       extraction des effets et palettes depuis les sources WLED
-notify.sh               déclenchement en ligne de commande
+wled_usb/serialport.py  raw termios open (CLOCAL, leaving DTR/RTS alone)
+wled_usb/link.py        serial transactions, JSON line and TPM2 parser, reconnection
+wled_usb/bridge.py      state cache, polling, WebSocket broadcast, liveview
+wled_usb/httpd.py       HTTP + WebSocket server, WLED API emulation
+wled_usb/flash.py       esptool driver with port release
+wled_usb/presets.py     local preset cache
+wled_usb/data.py        static effect and palette database
+wled_usb/audio.py       audio-reactive renderers, automatic gain, Adalight output
+wled_usb/listen.py      listen address resolution (localhost, Tailscale, NetBird)
+wled_usb/ui.py          shared interface language preference
+wled_usb/ws.py          minimal WebSocket framing
+wled_usb/notify.py      notification engine: patterns, queue, budget, restore
+wled_usb/kdeconnect.py  KDE Connect source (bus discovery, D-Bus polling)
+app/Sources/            macOS app: audio capture, FFT, menu, triggers
+public/                 the bridge's own pages (/bridge, unavailable page)
+vendor/                 redistributed WLED web interface
+tools/gen-data.py       effect and palette extraction from WLED sources
+notify.sh               command-line trigger
 ```
 
-Le transport série est volontairement en `termios` brut plutôt qu'en pyserial :
-pyserial pilote DTR/RTS à l'ouverture, ce qui **redémarre le module** à chaque
-connexion du pont. L'ouverture brute en `CLOCAL` laisse ces lignes tranquilles.
-pyserial reste présent — esptool en dépend.
+Serial transport is deliberately raw `termios` rather than pyserial: pyserial drives
+DTR/RTS on open, which **reboots the module** every time the bridge connects. A raw
+`CLOCAL` open leaves those lines alone. pyserial is still installed — esptool depends on
+it.
 
-## Sécurité
+## Security
 
-Le pont ouvre une socket par adresse demandée, jamais de joker : `0.0.0.0` n'est
-pas lié, donc rien n'est joignable depuis le réseau local même si la machine y est.
-Le module, lui, n'est sur aucun réseau.
+**By default the bridge binds loopback only.** It opens one socket per requested
+address and never a wildcard: `0.0.0.0` is never bound, so nothing is reachable from the
+local network even when the machine is on it. The module itself is on no network at all.
 
-L'absence d'en-têtes CORS ne protège de rien : elle empêche une page tierce de **lire**
-la réponse, pas de **poster** la requête. Une page web ouverte dans le navigateur
-pouvait donc piloter les LEDs — et surtout atteindre `POST /bridge/flash`, qui écrit un
-firmware arbitraire sur le module. Le pont contrôle donc deux en-têtes sur chaque
-requête :
+Missing CORS headers protect nothing: they stop a third-party page from **reading** the
+answer, not from **posting** the request. Any web page open in your browser could therefore
+drive the LEDs — and, worse, reach `POST /bridge/flash`, which writes arbitrary firmware to
+the module. So the bridge checks two headers on every request:
 
-| en-tête | contrôle | ce qu'il bloque |
+| Header | Check | What it blocks |
 | --- | --- | --- |
-| `Host` | doit correspondre à une adresse d'écoute | la réattribution DNS : un domaine hostile qui résout vers `127.0.0.1` |
-| `Origin` | s'il est présent, doit être une origine du pont | les requêtes émises par une page tierce, WebSocket compris |
+| `Host` | must match a listen address | DNS rebinding: a hostile domain resolving to `127.0.0.1` |
+| `Origin` | when present, must be one of the bridge's own | requests issued by a third-party page, WebSocket included |
 
-Un `Origin` absent est accepté : c'est le cas de `curl`, de `notify.sh` et des scripts.
-Le risque visé est le navigateur, et un navigateur joint toujours `Origin` à une requête
-d'origine croisée.
+A missing `Origin` is accepted: that is the case for `curl`, `notify.sh` and scripts. The
+threat model is the browser, and a browser always attaches `Origin` to a cross-origin
+request.
 
-`--listen` prend une liste séparée par des virgules, mêlant adresses littérales et
-mots-clés :
+### Optional: reaching the bridge from another machine
 
-| mot-clé | résolution |
+Everything in this section is opt-in and off unless you ask for it. `--listen` takes a
+comma-separated list mixing literal addresses and keywords:
+
+```bash
+./run.sh --listen localhost,192.168.1.42   # a literal address
+./run.sh --listen localhost,tailscale      # whatever address Tailscale gives this host
+```
+
+| Keyword | Resolution |
 | --- | --- |
 | `localhost` | `127.0.0.1` |
-| `tailscale` | sortie de `tailscale ip` (IPv4 et IPv6) |
-| `netbird` | lignes `NetBird IP` / `NetBird IPv6` de `netbird status` |
+| `tailscale` | output of `tailscale ip` (IPv4 and IPv6) |
+| `netbird` | `NetBird IP` / `NetBird IPv6` lines from `netbird status` |
 
-Les adresses sont résolues au démarrage, jamais écrites en dur : elles changent avec
-le réseau maillé. Un mot-clé dont le client n'est pas installé ou pas connecté est
-signalé puis ignoré, et une adresse déjà prise n'empêche pas les autres de s'ouvrir.
-Le pont refuse de démarrer seulement si aucune adresse ne reste.
+The two overlay-network keywords exist because a private mesh is about the only sane way
+to expose a service that has no authentication. They are conveniences, not requirements:
+the addresses are resolved at startup by running the client, never hard-coded, since they
+change with the mesh. A keyword whose client is missing or disconnected is reported and
+skipped, an address already in use does not stop the others from opening, and the bridge
+only refuses to start when no address is left at all.
 
-Un avertissement s'affiche si une adresse liée est routable publiquement. Les plages
-de Tailscale (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) et de NetBird ne le sont pas.
+The menu bar app passes `localhost` unless you tell it otherwise:
 
-> **Le pont n'a aucune authentification.** Tout ce qui atteint le port peut piloter
-> les LEDs et flasher le firmware. Sur un réseau maillé, cela vaut pour chaque pair,
-> et pour tout appareil avec qui la machine est partagée.
+```bash
+defaults write fr.wledusb.app listen "localhost,tailscale"
+```
 
-## Licence et crédits
+A warning is printed if a bound address turns out to be publicly routable. Tailscale's
+ranges (`100.64.0.0/10`, `fd7a:115c:a1e0::/48`) and NetBird's are not.
 
-Le projet est sous **EUPL v. 1.2 ou ultérieure**, comme WLED, puisqu'il redistribue
-l'interface web de WLED et des données extraites de ses sources. Voir `LICENSE` pour
-le texte et `NOTICE` pour le détail des composants tiers : UI WLED (EUPL-1.2),
-iro.js (MPL-2.0), rangetouch.js (MIT).
+> **The bridge has no authentication.** Anything that reaches the port can drive the LEDs
+> and flash the firmware. On a mesh network that means every peer, and every device the
+> machine is shared with.
 
-Les binaires de firmware ne sont pas versionnés. `firmware/*.bin` est exclu par
-`.gitignore` ; récupérer la version voulue sur la
-[page des releases WLED](https://github.com/wled/WLED/releases) et vérifier son
-empreinte avant de flasher :
+## Licence and credits
+
+This project is under the **EUPL v. 1.2 or later**, like WLED, because it redistributes
+WLED's web interface and data extracted from its sources. See `LICENSE` for the text and
+`NOTICE` for the third-party components: WLED UI (EUPL-1.2), iro.js (MPL-2.0),
+rangetouch.js (MIT).
+
+Firmware binaries are not versioned. `firmware/*.bin` is excluded by `.gitignore`; get the
+version you want from the [WLED releases page](https://github.com/wled/WLED/releases) and
+check its digest before flashing:
 
 ```bash
 shasum -a 256 firmware/WLED_16.0.1_ESP32.bin
 # 628917b0753edcfc9a8408e6387c6d1ace6a360d315441e9563d60299fef8594
 ```
+
+<sub>made with ❤️ by Matthieu Jeannin 🇫🇷</sub>

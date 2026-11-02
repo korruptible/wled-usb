@@ -20,8 +20,8 @@ class RawSerial:
         except OSError as exc:
             if exc.errno == errno.EBUSY:
                 raise SerialError(
-                    f"{path} est déjà ouvert par un autre programme "
-                    "(un autre pont, un moniteur série ou LedFx)"
+                    f"{path} is already open in another program "
+                    "(another bridge, a serial monitor or LedFx)"
                 ) from exc
             raise
         try:
@@ -36,8 +36,8 @@ class RawSerial:
             fcntl.flock(self.fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except OSError as exc:
             raise SerialError(
-                f"{self.path} est déjà utilisé par un autre programme "
-                "(un autre pont, un moniteur série ou LedFx)"
+                f"{self.path} is already in use by another program "
+                "(another bridge, a serial monitor or LedFx)"
             ) from exc
         try:
             fcntl.ioctl(self.fd, termios.TIOCEXCL)
@@ -67,7 +67,7 @@ class RawSerial:
         while view:
             _, ready, _ = select.select([], [self.fd], [], 2.0)
             if not ready:
-                raise SerialError("délai dépassé à l'écriture sur le port série")
+                raise SerialError("timed out writing to the serial port")
             view = view[os.write(self.fd, view) :]
 
     def flush_input(self):

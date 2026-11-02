@@ -58,7 +58,7 @@ class Bridge:
 
         result = self.link.request(request)
         if not isinstance(result, dict) or "state" not in result:
-            raise LinkError("réponse inattendue du module")
+            raise LinkError("unexpected answer from the module")
 
         self._store(result)
 

@@ -18,6 +18,7 @@ from .link import WledLink
 from .listen import ListenError, public, resolve, url
 from .notify import Notifier
 from .presets import PresetStore
+from .ui import UiSettings
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PREFERRED = ("usbserial", "usbmodem", "wchusbserial", "slab_usbtouart", "cu.usb")
@@ -40,40 +41,43 @@ def pick_port(requested):
         return requested
     found = candidate_ports()
     if not found:
-        sys.exit("Aucun port série USB détecté. Branchez le module ou passez --port.")
+        sys.exit("No USB serial port found. Plug the module in, or pass --port.")
     if len(found) > 1:
-        print("Plusieurs ports possibles :")
+        print("Several candidate ports:")
         for _, device, description in found:
             print(f"  {device}  ({description})")
-        print(f"→ utilisation de {found[0][1]} (forcez avec --port)")
+        print(f"→ using {found[0][1]} (override with --port)")
     return found[0][1]
 
 
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="wled-usb",
-        description="Pont USB série ↔ interface web officielle WLED",
+        description="USB serial bridge to the official WLED web interface",
     )
-    parser.add_argument("--port", help="port série (défaut : détection automatique)")
-    parser.add_argument("--baud", type=int, default=115200, help="débit série (défaut 115200)")
-    parser.add_argument("--listen", default="localhost,tailscale,netbird",
-                        help="adresses d'écoute séparées par des virgules : une IP, "
-                             "ou localhost / tailscale / netbird (défaut : les trois)")
-    parser.add_argument("--http-port", type=int, default=8723, help="port HTTP (défaut 8723)")
-    parser.add_argument("--chip", default="esp32", help="cible esptool (défaut esp32)")
+    parser.add_argument("--port", help="serial port (default: autodetect)")
+    parser.add_argument("--baud", type=int, default=115200, help="serial baud rate (default 115200)")
+    parser.add_argument("--listen", default="localhost",
+                        help="comma-separated listen addresses: a literal IP, "
+                             "or localhost / tailscale / netbird (default: localhost)")
+    parser.add_argument("--http-port", type=int, default=8723, help="HTTP port (default 8723)")
+    parser.add_argument("--chip", default="esp32", help="esptool chip target (default esp32)")
     parser.add_argument("--presets", default=str(ROOT / "data" / "presets.json"))
     parser.add_argument("--notifications", default=str(ROOT / "data" / "notifications.json"))
     parser.add_argument("--no-kdeconnect", action="store_true",
-                        help="ne pas surveiller les notifications KDE Connect")
-    parser.add_argument("--poll", type=float, default=2.0, help="intervalle de rafraîchissement")
+                        help="do not watch KDE Connect notifications")
+    parser.add_argument("--poll", type=float, default=2.0, help="state refresh interval, in seconds")
     parser.add_argument("--audio-stdin", action="store_true",
-                        help="lire des trames de bandes audio sur l'entrée standard")
-    parser.add_argument("--audio-fps", type=int, default=25, help="images LED par seconde")
-    parser.add_argument("--audio-mode", default="spectre", help="rendu audio au démarrage")
+                        help="read audio band frames on standard input")
+    parser.add_argument("--audio-fps", type=int, default=25, help="LED frames per second")
+    parser.add_argument("--audio-mode", default="spectrum", help="audio renderer at startup")
     parser.add_argument("--audio-config", default=str(ROOT / "data" / "audio.json"),
-                        help="fichier des réglages audio")
-    parser.add_argument("--open", action="store_true", help="ouvrir le navigateur au démarrage")
-    parser.add_argument("--list-ports", action="store_true", help="lister les ports et quitter")
+                        help="audio settings file")
+    parser.add_argument("--lang", help="interface language at first run (en, fr)")
+    parser.add_argument("--ui-config", default=str(ROOT / "data" / "ui.json"),
+                        help="interface settings file")
+    parser.add_argument("--open", action="store_true", help="open the browser at startup")
+    parser.add_argument("--list-ports", action="store_true", help="list the serial ports and exit")
     args = parser.parse_args(argv)
 
     if args.list_ports:
@@ -94,6 +98,7 @@ def main(argv=None):
     bridge = Bridge(link, data, presets, poll_interval=args.poll)
     flasher = Flasher(link, chip=args.chip, python_exe=sys.executable)
 
+    ui = UiSettings(args.ui_config, args.lang)
     notifier = Notifier(bridge, args.notifications)
     audio = AudioEngine(bridge, fps=args.audio_fps, mode=args.audio_mode,
                         config_path=args.audio_config)
@@ -116,27 +121,27 @@ def main(argv=None):
         try:
             servers.append((label, address,
                             BridgeServer((address, args.http_port), bridge, flasher,
-                                         notifier, sources, audio, hosts)))
+                                         notifier, sources, audio, hosts, ui)))
         except OSError as exc:
-            print(f"Écoute     : {label} {address} impossible ({exc})")
+            print(f"Listen     : {label} {address} failed ({exc})")
 
     if not servers:
-        print("Aucune adresse d'écoute disponible.", file=sys.stderr)
+        print("No listen address available.", file=sys.stderr)
         link.stop()
         return 1
 
-    print(f"Port série  : {port} @ {args.baud}")
+    print(f"Serial port : {port} @ {args.baud}")
     for label, address, _ in servers:
         print(f"Interface   : {url(address, args.http_port)} ({label})")
     for label in missing:
-        print(f"Interface   : {label} indisponible, ignoré")
+        print(f"Interface   : {label} unavailable, skipped")
     exposed = [address for _, address, _ in servers if public(address)]
     if exposed:
-        print(f"ATTENTION   : {', '.join(exposed)} est routable publiquement, "
-              "et le pont n'a aucune authentification")
+        print(f"WARNING     : {', '.join(exposed)} is publicly routable, "
+              "and the bridge has no authentication")
     for name, source in sources.items():
         print(f"Source {name}: {source.status()['detail']}")
-    print("Ctrl+C pour arrêter.")
+    print("Ctrl+C to stop.")
 
     for _, _, server in servers:
         threading.Thread(target=server.serve_forever, name="wled-http",
@@ -148,7 +153,7 @@ def main(argv=None):
     try:
         threading.Event().wait()
     except KeyboardInterrupt:
-        print("\nArrêt…")
+        print("\nStopping…")
     finally:
         for source in sources.values():
             source.stop()

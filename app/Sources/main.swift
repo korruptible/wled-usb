@@ -8,13 +8,17 @@ final class Controller: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var analyzer: Analyzer?
     private var triggers: Triggers!
     private var level: Float = 0
-    private var audioState = "son : inactif"
+    private var audioError: Error?
+    private var languageTicks = 0
 
     private let bridgeLine = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let audioLine = NSMenuItem(title: "", action: nil, keyEquivalent: "")
     private let levelLine = NSMenuItem(title: "", action: nil, keyEquivalent: "")
-    private let audioToggle = NSMenuItem(title: "Activer le son du Mac",
-                                         action: #selector(toggleAudio), keyEquivalent: "")
+    private let audioToggle = NSMenuItem(title: "", action: #selector(toggleAudio),
+                                         keyEquivalent: "")
+    private let openItem = NSMenuItem(title: "", action: #selector(openInterface),
+                                      keyEquivalent: "o")
+    private let quitItem = NSMenuItem(title: "", action: #selector(quit), keyEquivalent: "q")
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -29,11 +33,11 @@ final class Controller: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(.separator())
         menu.addItem(audioToggle)
         menu.addItem(triggerRoot)
-        menu.addItem(NSMenuItem(title: "Ouvrir l'interface",
-                                action: #selector(openInterface), keyEquivalent: "o"))
+        menu.addItem(openItem)
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quitter", action: #selector(quit), keyEquivalent: "q"))
+        menu.addItem(quitItem)
         menu.items.forEach { $0.target = self }
+        relabel()
         statusItem.menu = menu
 
         bridge = BridgeProcess { [weak self] in self?.refresh() }
@@ -46,14 +50,36 @@ final class Controller: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
+    private func relabel() {
+        audioToggle.title = L10n.t(tap == nil ? "audio.enable" : "audio.disable")
+        openItem.title = L10n.t("menu.open")
+        quitItem.title = L10n.t("menu.quit")
+        triggerRoot.title = L10n.t("menu.triggers")
+        watchedRoot.title = L10n.t("menu.watched")
+    }
+
+    private func pollLanguage() {
+        let url = bridge.url.appendingPathComponent("bridge/ui")
+        URLSession.shared.dataTask(with: url) { [weak self] data, _, _ in
+            guard let data,
+                  let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let code = payload["language"] as? String else { return }
+            DispatchQueue.main.async {
+                guard L10n.apply(code) else { return }
+                self?.relabel()
+                self?.buildTriggerMenu()
+            }
+        }.resume()
+    }
+
     @objc private func toggleAudio() {
         if let running = tap {
             running.stop()
             tap = nil
             analyzer = nil
             level = 0
-            audioState = "son : inactif"
-            audioToggle.title = "Activer le son du Mac"
+            audioError = nil
+            relabel()
             return
         }
         analyzer = Analyzer { [weak self] rms, bands in
@@ -69,18 +95,18 @@ final class Controller: NSObject, NSApplicationDelegate, NSMenuDelegate {
         do {
             try starting.start()
             tap = starting
-            audioState = "son : capture active"
-            audioToggle.title = "Couper le son du Mac"
+            audioError = nil
         } catch {
-            audioState = "son : " + error.localizedDescription
+            audioError = error
         }
+        relabel()
     }
 
-    private let triggerRoot = NSMenuItem(title: "Déclencheurs", action: nil, keyEquivalent: "")
-    private let watchedRoot = NSMenuItem(title: "Applications surveillées",
-                                         action: nil, keyEquivalent: "")
+    private let triggerRoot = NSMenuItem(title: "", action: nil, keyEquivalent: "")
+    private let watchedRoot = NSMenuItem(title: "", action: nil, keyEquivalent: "")
 
     private func buildTriggerMenu() {
+        watchedRoot.menu?.removeItem(watchedRoot)
         let submenu = NSMenu()
         for trigger in Trigger.all {
             let item = NSMenuItem(title: trigger.label,
@@ -88,7 +114,7 @@ final class Controller: NSObject, NSApplicationDelegate, NSMenuDelegate {
             item.target = self
             item.representedObject = trigger.key
             item.state = triggers.enabled(trigger.key) ? .on : .off
-            if trigger.needsCalendar { item.toolTip = "Demande l'accès au calendrier" }
+            if trigger.needsCalendar { item.toolTip = L10n.t("menu.calendarTip") }
             submenu.addItem(item)
             if trigger.key == "app" {
                 let apps = NSMenu()
@@ -143,7 +169,7 @@ final class Controller: NSObject, NSApplicationDelegate, NSMenuDelegate {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try? JSONSerialization.data(withJSONObject: [
                 "source": "url",
-                "app": value("app") ?? "Raccourci",
+                "app": value("app") ?? L10n.t("shortcut"),
                 "title": value("title") ?? "",
                 "pattern": value("pattern") ?? "info",
                 "priority": Int(value("priority") ?? "5") ?? 5,
@@ -160,16 +186,23 @@ final class Controller: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func refresh() {
+        languageTicks += 1
+        if languageTicks % 10 == 0 { pollLanguage() }
+
         switch bridge.state {
-        case .running:  bridgeLine.title = "pont : en marche sur \(bridge.url.port ?? 0)"
-        case .stopped:  bridgeLine.title = "pont : arrêté"
-        case .failed(let why): bridgeLine.title = "pont : " + why
+        case .running:  bridgeLine.title = L10n.t("bridge.running", String(bridge.url.port ?? 0))
+        case .stopped:  bridgeLine.title = L10n.t("bridge.stopped")
+        case .failed(let why): bridgeLine.title = L10n.t("bridge.prefix") + why
         }
-        audioLine.title = audioState
+        if let audioError {
+            audioLine.title = L10n.t("audio.prefix") + audioError.localizedDescription
+        } else {
+            audioLine.title = L10n.t(tap == nil ? "audio.off" : "audio.on")
+        }
         statusItem.button?.appearsDisabled = tap == nil
         let db = level > 0 ? 20 * log10(level) : -120
         let bars = max(0, min(20, Int((db + 60) / 3)))
-        levelLine.title = "niveau  " + String(repeating: "▇", count: bars)
+        levelLine.title = L10n.t("level") + "  " + String(repeating: "▇", count: bars)
             + String(repeating: "·", count: 20 - bars)
     }
 

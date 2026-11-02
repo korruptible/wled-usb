@@ -9,6 +9,7 @@ firmware/*.bin
 data/presets.json
 data/notifications.json
 data/audio.json
+data/ui.json
 
 # Environnements et produits de compilation.
 .venv/

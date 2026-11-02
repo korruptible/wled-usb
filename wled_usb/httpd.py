@@ -58,11 +58,12 @@ class BridgeServer(ThreadingHTTPServer):
     allow_reuse_address = True
 
     def __init__(self, address, bridge, flasher, notifier=None, sources=None, audio=None,
-                 hosts=None):
+                 hosts=None, ui=None):
         self.address_family = socket.AF_INET6 if ":" in address[0] else socket.AF_INET
         self.hosts = hosts or known_hosts([address[0]], address[1])
         self.origins = {f"http://{host}" for host in self.hosts}
         self.audio = audio
+        self.ui = ui
         self.bridge = bridge
         self.flasher = flasher
         self.notifier = notifier
@@ -101,7 +102,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
         except LinkError as exc:
             self._json({"error": str(exc)}, 503)
         except ValueError as exc:
-            self._json({"error": f"paramètre invalide : {exc}"}, 400)
+            self._json({"error": f"invalid parameter: {exc}"}, 400)
 
     def do_POST(self):
         if not self._trusted():
@@ -114,16 +115,16 @@ class BridgeHandler(BaseHTTPRequestHandler):
         except FlashError as exc:
             self._json({"error": str(exc)}, 400)
         except ValueError as exc:
-            self._json({"error": f"paramètre invalide : {exc}"}, 400)
+            self._json({"error": f"invalid parameter: {exc}"}, 400)
 
     def _trusted(self):
         host = (self.headers.get("Host") or "").lower()
         if host not in self.server.hosts:
-            self._json({"error": "en-tête Host inattendu"}, 421)
+            self._json({"error": "unexpected Host header"}, 421)
             return False
         origin = (self.headers.get("Origin") or "").lower()
         if origin and origin not in self.server.origins:
-            self._json({"error": "origine tierce refusée"}, 403)
+            self._json({"error": "third-party origin refused"}, 403)
             return False
         return True
 
@@ -172,16 +173,19 @@ class BridgeHandler(BaseHTTPRequestHandler):
         elif path == "/bridge/audio":
             self._json(self.server.audio.status() if self.server.audio
                        else {"running": False})
+        elif path == "/bridge/ui":
+            self._json(self.server.ui.status() if self.server.ui
+                       else {"language": "en", "languages": ["en"]})
         elif path == "/bridge/notify":
             self._json(self._notify_status())
         else:
-            self._json({"error": "endpoint indisponible via le pont USB"}, 404)
+            self._json({"error": "endpoint not available over the USB bridge"}, 404)
 
     def _route_post(self, path, query):
         if path in ("/json", "/json/state", "/json/si"):
             payload = _lenient_json(self._body())
             if not isinstance(payload, dict):
-                self._json({"error": "objet JSON attendu"}, 400)
+                self._json({"error": "JSON object expected"}, 400)
                 return
             self._json(self.bridge.apply(payload))
         elif path == "/bridge/flash":
@@ -202,10 +206,13 @@ class BridgeHandler(BaseHTTPRequestHandler):
                 fps=payload.get("fps"), curve=payload.get("curve"),
                 floor=payload.get("floor"), palette=payload.get("palette"),
                 auto=payload.get("auto")))
+        elif path == "/bridge/ui":
+            payload = _lenient_json(self._body()) or {}
+            self._json(self.server.ui.configure(language=payload.get("language")))
         elif path == "/bridge/notify/config":
             payload = _lenient_json(self._body())
             if not isinstance(payload, dict):
-                self._json({"error": "objet JSON attendu"}, 400)
+                self._json({"error": "JSON object expected"}, 400)
                 return
             self._json(self.notifier.save(payload))
         elif path == "/bridge/presets/scan":
@@ -218,7 +225,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
             self.bridge.presets.forget(query["slot"][0])
             self._json(self.bridge.presets.as_dict())
         else:
-            self._json({"error": "endpoint indisponible via le pont USB"}, 404)
+            self._json({"error": "endpoint not available over the USB bridge"}, 404)
 
     def _status(self):
         link = self.bridge.link
@@ -254,7 +261,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
 
     def _fire(self, payload):
         if not isinstance(payload, dict):
-            return "objet JSON attendu"
+            return "JSON object expected"
         return self.notifier.submit(Notification(
             priority=int(payload.get("priority", 0)),
             received=time.time(),
@@ -282,9 +289,9 @@ class BridgeHandler(BaseHTTPRequestHandler):
     def _start_flash(self, query):
         length = int(self.headers.get("Content-Length") or 0)
         if length <= 0:
-            raise FlashError("corps de requête vide : envoyez le .bin en binaire")
+            raise FlashError("empty request body: send the .bin as raw binary")
         if length > MAX_FIRMWARE:
-            raise FlashError(f"firmware trop volumineux ({length} octets)")
+            raise FlashError(f"firmware too large ({length} bytes)")
 
         offset = query.get("offset", [hex(APP_OFFSET)])[0]
         offset = int(offset, 16) if offset.lower().startswith("0x") else int(offset)
@@ -308,7 +315,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
         key = self.headers.get("Sec-WebSocket-Key")
         upgrade = (self.headers.get("Upgrade") or "").lower()
         if not key or "websocket" not in upgrade:
-            self._json({"error": "handshake websocket attendu"}, 400)
+            self._json({"error": "websocket handshake expected"}, 400)
             return
 
         self.close_connection = True
@@ -358,7 +365,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
     def _body(self):
         length = int(self.headers.get("Content-Length") or 0)
         if length > MAX_BODY:
-            raise ValueError(f"corps trop volumineux ({length} octets)")
+            raise ValueError(f"body too large ({length} bytes)")
         return self.rfile.read(length) if length else b"{}"
 
     def _json(self, payload, status=200):
@@ -369,7 +376,7 @@ class BridgeHandler(BaseHTTPRequestHandler):
         try:
             body = pathlib.Path(path).read_bytes()
         except OSError:
-            self._json({"error": f"fichier manquant : {path.name}"}, 404)
+            self._json({"error": f"missing file: {path.name}"}, 404)
             return
         self._respond(body, content_type, status)
 

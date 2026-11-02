@@ -3,17 +3,18 @@ import EventKit
 
 struct Trigger {
     let key: String
-    let label: String
     let pattern: String
     let needsCalendar: Bool
 
+    var label: String { L10n.t("trigger." + key) }
+
     static let all = [
-        Trigger(key: "wake", label: "Réveil du Mac", pattern: "info", needsCalendar: false),
-        Trigger(key: "unlock", label: "Déverrouillage de l'écran", pattern: "info", needsCalendar: false),
-        Trigger(key: "lock", label: "Verrouillage de l'écran", pattern: "info", needsCalendar: false),
-        Trigger(key: "app", label: "Une app surveillée démarre ou se ferme", pattern: "slack", needsCalendar: false),
-        Trigger(key: "mesh", label: "Tailscale ou NetBird tombe", pattern: "urgent", needsCalendar: false),
-        Trigger(key: "meeting", label: "Réunion dans 5 minutes", pattern: "call", needsCalendar: true),
+        Trigger(key: "wake", pattern: "info", needsCalendar: false),
+        Trigger(key: "unlock", pattern: "info", needsCalendar: false),
+        Trigger(key: "lock", pattern: "info", needsCalendar: false),
+        Trigger(key: "app", pattern: "slack", needsCalendar: false),
+        Trigger(key: "mesh", pattern: "urgent", needsCalendar: false),
+        Trigger(key: "meeting", pattern: "call", needsCalendar: true),
     ]
 }
 
@@ -71,7 +72,7 @@ final class Triggers {
         store.requestFullAccessToEvents { granted, _ in
             DispatchQueue.main.async {
                 UserDefaults.standard.set(granted, forKey: "trigger.\(trigger.key)")
-                if !granted { self.lastFired = "agenda refusé" }
+                if !granted { self.lastFired = L10n.t("calendar.denied") }
                 completion()
             }
         }
@@ -81,11 +82,11 @@ final class Triggers {
         let workspace = NSWorkspace.shared.notificationCenter
         workspace.addObserver(forName: NSWorkspace.didWakeNotification,
                               object: nil, queue: .main) { [weak self] _ in
-            self?.fire("wake", title: "Mac réveillé")
+            self?.fire("wake", title: L10n.t("fired.wake"))
         }
         for (name, key, title) in [
-            (NSWorkspace.didLaunchApplicationNotification, "app", "démarre"),
-            (NSWorkspace.didTerminateApplicationNotification, "app", "se ferme"),
+            (NSWorkspace.didLaunchApplicationNotification, "app", "fired.launched"),
+            (NSWorkspace.didTerminateApplicationNotification, "app", "fired.terminated"),
         ] {
             workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
                 guard let self,
@@ -93,18 +94,18 @@ final class Triggers {
                           as? NSRunningApplication,
                       let name = app.localizedName,
                       self.watches(name) else { return }
-                self.fire(key, title: "\(name) \(title)")
+                self.fire(key, title: "\(name) \(L10n.t(title))")
             }
         }
 
         let distributed = DistributedNotificationCenter.default()
         distributed.addObserver(forName: .init("com.apple.screenIsLocked"),
                                 object: nil, queue: .main) { [weak self] _ in
-            self?.fire("lock", title: "Écran verrouillé")
+            self?.fire("lock", title: L10n.t("fired.lock"))
         }
         distributed.addObserver(forName: .init("com.apple.screenIsUnlocked"),
                                 object: nil, queue: .main) { [weak self] _ in
-            self?.fire("unlock", title: "Écran déverrouillé")
+            self?.fire("unlock", title: L10n.t("fired.unlock"))
         }
     }
 
@@ -112,7 +113,7 @@ final class Triggers {
         if enabled("mesh") {
             let up = Self.meshIsUp()
             if meshWasUp && !up {
-                fire("mesh", title: "Réseau maillé indisponible")
+                fire("mesh", title: L10n.t("fired.mesh"))
             }
             meshWasUp = up
         }
@@ -132,7 +133,7 @@ final class Triggers {
             let delay = event.startDate.timeIntervalSince(now)
             guard delay > 0, delay <= 300, !announced.contains(identifier) else { continue }
             announced.insert(identifier)
-            fire("meeting", title: event.title ?? "Réunion")
+            fire("meeting", title: event.title ?? L10n.t("fired.meeting"))
         }
         if announced.count > 200 { announced.removeAll() }
     }
