@@ -151,15 +151,40 @@ Reading a full image and restoring it:
   write-flash 0x0 backup/full-flash.bin
 ```
 
-Stop the bridge first: it holds the port exclusively. Changing baud rate after the stub
-loader failed on this adapter, so stay at 115200.
+Stop the bridge first: it holds the port exclusively. Some USB-serial adapters fail to
+switch rate once the stub loader is up; 115200 always works, so raise it only if yours
+takes it.
 
-### Going from 0.15.x to 16.x
+### Upgrading across a major version
 
-Same partition table (`WLED_ESP32_4MB_1MB_FS.csv`), so writing the application alone at
-`0x10000` is enough and the configuration is kept. The platform does jump from ESP-IDF
-3.3 to 4.4.8 while the bootloader in flash stays the 0.15 one. Tested here on an
-ESP32-PICO-D4; the module boots fine.
+Writing the application alone keeps the configuration **only if the build you flash
+expects the partition table already in flash**. WLED ships several ESP32 layouts, which
+differ in filesystem size and in how much room the application gets, and a release binary
+is built for one of them. Flash a build whose application is larger than the partition in
+place and the write runs past it into the next one; flash one built for a different
+filesystem size and the firmware looks for its files where they are not.
+
+Two fields of `GET /json/info` tell you what is running:
+
+| Field | Reads |
+| --- | --- |
+| `fs.t` | filesystem size in kB, which follows the partition table — 983 on a 1 MB layout |
+| `core` | the ESP-IDF version the running application was built against |
+
+If the layouts do not match, write the full image set instead — bootloader at `0x1000`,
+partition table at `0x8000`, application at `0x10000` — and expect the configuration to go
+with it.
+
+A major version also changes the ESP-IDF the application is built on while the bootloader
+in flash stays the one written with the old version. The ESP32 tolerates that pairing in
+practice, but nothing guarantees it: if the module does not come back, write the matching
+bootloader too.
+
+> [!NOTE]
+> One measured path, which is not a guarantee for yours: 0.15.x to 16.0.1 on an
+> ESP32-PICO-D4, both builds on `WLED_ESP32_4MB_1MB_FS.csv`, application alone at
+> `0x10000`, ESP-IDF 3.3 to 4.4.8 with the 0.15 bootloader left in place. The module
+> booted and kept its settings.
 
 ## Static data
 

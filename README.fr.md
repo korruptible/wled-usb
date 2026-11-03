@@ -162,15 +162,41 @@ Lecture d'une image complète et restauration :
   write-flash 0x0 backup/flash-complet.bin
 ```
 
-Arrêter le pont avant : il garde le port en exclusivité. Le changement de débit après
-le stub échoue sur cet adaptateur, rester à 115200.
+Arrêter le pont avant : il garde le port en exclusivité. Certains adaptateurs USB-série
+n'arrivent pas à changer de débit une fois le stub chargé ; 115200 passe toujours,
+n'augmenter que si le vôtre l'accepte.
 
-### Passage de la 0.15.x à la 16.x
+### Passage d'une version majeure à la suivante
 
-Même table de partitions (`WLED_ESP32_4MB_1MB_FS.csv`), donc l'écriture de la seule
-application en `0x10000` suffit et la configuration est conservée. La plateforme change
-en revanche d'ESP-IDF 3.3 à 4.4.8 : le bootloader en flash reste celui de la 0.15.
-Testé ici sur ESP32-PICO-D4, le module démarre correctement.
+Écrire la seule application ne conserve la configuration **que si la version flashée
+attend la table de partitions déjà en place**. WLED publie plusieurs dispositions ESP32,
+qui diffèrent par la taille du système de fichiers et par la place laissée à
+l'application, et un binaire de release est construit pour l'une d'elles. Flasher une
+application plus grosse que la partition en place déborde sur la suivante ; en flasher une
+construite pour une autre taille de système de fichiers, et le firmware cherche ses
+fichiers là où ils ne sont pas.
+
+Deux champs de `GET /json/info` disent ce qui tourne :
+
+| Champ | Se lit |
+| --- | --- |
+| `fs.t` | taille du système de fichiers en ko, qui suit la table de partitions — 983 sur une disposition 1 Mo |
+| `core` | la version d'ESP-IDF avec laquelle l'application en place a été construite |
+
+Si les dispositions ne correspondent pas, écrire l'ensemble complet — bootloader en
+`0x1000`, table de partitions en `0x8000`, application en `0x10000` — en acceptant d'y
+laisser la configuration.
+
+Une version majeure change aussi l'ESP-IDF sur lequel l'application est construite, alors
+que le bootloader en flash reste celui écrit avec l'ancienne. L'ESP32 tolère cet attelage
+en pratique, mais rien ne le garantit : si le module ne revient pas, écrire aussi le
+bootloader correspondant.
+
+> [!NOTE]
+> Un chemin mesuré, qui ne garantit pas le vôtre : 0.15.x vers 16.0.1 sur un
+> ESP32-PICO-D4, les deux versions sur `WLED_ESP32_4MB_1MB_FS.csv`, application seule en
+> `0x10000`, ESP-IDF 3.3 vers 4.4.8 en laissant le bootloader de la 0.15. Le module a
+> démarré et gardé ses réglages.
 
 ## Données statiques
 
