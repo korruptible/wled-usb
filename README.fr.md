@@ -43,6 +43,7 @@ Compiler et lancer l'app macOS, c'est dans [Application macOS](#application-maco
 - [Son du Mac vers les LEDs](#son-du-mac-vers-les-leds)
 - [Streaming audio-réactif (LedFx, Adalight)](#streaming-audio-réactif-ledfx-adalight)
 - [Notifications](#notifications)
+  - [Notifications pendant le son réactif](#notifications-pendant-le-son-réactif)
 - [Architecture](#architecture)
 - [Sécurité](#sécurité)
 - [Comment ce projet a été écrit](#comment-ce-projet-a-été-écrit)
@@ -438,7 +439,9 @@ absolu pour que les graves restent plus forts que les aigus.
 | `POST /bridge/audio` | `{"mode":…, "gain":…, "auto":…, "fps":…, "curve":…, "floor":…}` à chaud |
 | `GET /bridge/audio` | images émises, abandonnées, niveau, erreur |
 
-Une notification met l'audio en pause le temps du flash, puis le relance.
+Une notification met l'audio en pause le temps du flash, puis le relance. Tant que l'audio
+diffuse, elle est peinte dans le flux temps réel lui-même — voir
+[Notifications pendant le son réactif](#notifications-pendant-le-son-réactif).
 
 ### Adalight plutôt que TPM2
 
@@ -480,6 +483,23 @@ la liaison de l'autre.
 Le bandeau sert d'indicateur : à l'arrivée d'une notification, il interrompt la scène
 en cours, joue un motif coloré, puis **restaure exactement l'état précédent**
 (alimentation, luminosité, effet, palette, bornes de segment, couleurs).
+
+### Notifications pendant le son réactif
+
+Les trames Adalight basculent WLED en **mode temps réel** : il ignore ses propres effets et
+affiche les pixels reçus, et il y reste 2,5 secondes après la dernière trame. Une
+notification envoyée comme changement d'état JSON pendant cette fenêtre ne change donc rien
+sur le bandeau : le module affiche toujours la dernière image audio.
+
+Aussi, quand une trame temps réel est partie il y a moins de deux secondes, la notification
+est dessinée *dans* le flux : l'audio se met en pause, les flashs partent en trames
+Adalight, puis l'audio reprend et repeint. Aucun état n'est touché, il n'y a donc rien à
+restaurer.
+
+Une conséquence : les pixels temps réel sont mis à l'échelle par la luminosité courante du
+bandeau, que le pont ne peut pas remplacer le temps d'un flash. Le motif est donc peint à
+pleine échelle, plafonné par le budget de courant, plutôt qu'à son propre `bri` — ainsi une
+notification n'est jamais plus terne que le son qu'elle interrompt.
 
 ### N'importe quoi, par HTTP
 

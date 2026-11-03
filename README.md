@@ -49,6 +49,7 @@ Building and running the macOS app is under [macOS menu bar app](#macos-menu-bar
 - [Computer audio to the LEDs](#computer-audio-to-the-leds)
 - [Audio-reactive streaming (LedFx, Adalight)](#audio-reactive-streaming-ledfx-adalight)
 - [Notifications](#notifications)
+  - [Notifications while the audio runs](#notifications-while-the-audio-runs)
 - [Architecture](#architecture)
 - [Security](#security)
 - [How this was built](#how-this-was-built)
@@ -406,7 +407,9 @@ absolute level so the bass stays louder than the treble.
 | `POST /bridge/audio` | `{"mode":…, "gain":…, "auto":…, "fps":…, "curve":…, "floor":…}` live |
 | `GET /bridge/audio` | frames sent and dropped, level, error |
 
-A notification pauses the audio for the duration of its flash, then resumes it.
+A notification pauses the audio for the duration of its flash, then resumes it. While the
+audio is streaming it is painted into the realtime stream itself — see
+[Notifications while the audio runs](#notifications-while-the-audio-runs).
 
 ### Adalight rather than TPM2
 
@@ -447,6 +450,22 @@ link.
 The strip doubles as an indicator: when a notification arrives it interrupts the current
 scene, plays a coloured pattern, then **restores the previous state exactly** — power,
 brightness, effect, palette, segment bounds, colours.
+
+### Notifications while the audio runs
+
+Adalight frames put WLED in **realtime mode**, where it ignores its own effects and shows
+the incoming pixels — and stays there for 2.5 seconds after the last frame. A notification
+sent as a JSON state change during that window therefore changes nothing on the strip: the
+module is still displaying the last audio frame.
+
+So when a realtime frame went out less than two seconds ago, the notification is drawn
+*into* the stream instead: the audio pauses, the flashes are sent as Adalight frames, then
+the audio resumes and repaints. No state is touched, so there is nothing to restore.
+
+One consequence: realtime pixels are scaled by the strip's current brightness, which the
+bridge cannot replace for the length of a flash. The pattern is therefore painted at full
+scale, capped by the power budget, rather than at its own `bri` — so a notification is
+never dimmer than the audio it interrupts.
 
 ### Anything, over HTTP
 

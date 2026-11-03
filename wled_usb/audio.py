@@ -160,6 +160,7 @@ class AudioEngine:
         self._pixels = []
         self._state = {}
         self._paused = threading.Event()
+        self._draw = threading.Lock()
         self._stop = threading.Event()
         self._sent_at = 0.0
         self._thread = None
@@ -248,6 +249,15 @@ class AudioEngine:
 
     def resume(self):
         self._paused.clear()
+
+    def live(self, within=2.0):
+        return not self._paused.is_set() and time.monotonic() - self._sent_at < within
+
+    def paint(self, pixels):
+        frame = adalight(bytes(channel for pixel in pixels for channel in pixel))
+        with self._draw:
+            self._pixels = list(pixels)
+            self.bridge.link.send_raw(frame)
 
     def start(self, stream):
         self._thread = threading.Thread(target=self._loop, args=(stream,),
@@ -338,11 +348,14 @@ class AudioEngine:
         if not count:
             return
         pixels = self._render(bands, count)
-        try:
-            self.bridge.link.send_raw(adalight(pixels))
-        except LinkError as exc:
-            self.last_error = str(exc)
-            return
+        with self._draw:
+            if self._paused.is_set():
+                return
+            try:
+                self.bridge.link.send_raw(adalight(pixels))
+            except LinkError as exc:
+                self.last_error = str(exc)
+                return
         self.last_error = ""
         self._sent_at = now
         self.frames += 1

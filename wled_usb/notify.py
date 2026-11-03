@@ -205,13 +205,16 @@ class Notifier:
             else:
                 self._record(notification, "played")
 
+    def _led_count(self):
+        cached = self.bridge.cached() or {}
+        count = ((cached.get("info") or {}).get("leds") or {}).get("count")
+        return int(count) if count else 0
+
     def _segment_length(self, segment):
         stop = segment.get("stop")
         if stop:
             return int(stop) - int(segment.get("start", 0))
-        cached = self.bridge.cached() or {}
-        count = ((cached.get("info") or {}).get("leds") or {}).get("count")
-        return int(count) if count else 0
+        return self._led_count()
 
     def budget(self, leds, colour, brightness):
         per_led = self.config.get("ledMilliamps", 55)
@@ -232,6 +235,45 @@ class Notifier:
         return brightness
 
     def _play(self, pattern):
+        if self.audio is not None and self.audio.live():
+            self._play_live(pattern)
+        else:
+            self._play_state(pattern)
+
+    def _span(self, pattern, total):
+        return max(1, min(int(pattern.get("leds") or total), total))
+
+    def _beat(self, pattern, show, hide):
+        for _ in range(max(1, int(pattern.get("flashes", 2)))):
+            show()
+            time.sleep(max(0.05, pattern.get("onMs", 240) / 1000))
+            hide()
+            time.sleep(max(0.05, pattern.get("offMs", 160) / 1000))
+
+    def _play_live(self, pattern):
+        state = (self.bridge.cached() or {}).get("state") or {}
+        if not state.get("on", True) and not self.config.get("notifyWhenOff", True):
+            return
+        total = self._led_count()
+        if total <= 0:
+            return
+
+        colour = pattern.get("color", [255, 180, 60])
+        span = self._span(pattern, total)
+        brightness = self._fit_to_budget(span, colour, 255)
+        tint = tuple(channel * brightness // 255 for channel in colour)
+        lit = [tint] * span + [(0, 0, 0)] * (total - span)
+        dark = [(0, 0, 0)] * total
+
+        self.playing = pattern
+        self.audio.pause()
+        try:
+            self._beat(pattern, lambda: self.audio.paint(lit), lambda: self.audio.paint(dark))
+        finally:
+            self.playing = None
+            self.audio.resume()
+
+    def _play_state(self, pattern):
         snapshot = self.bridge.snapshot(max_age=0).get("state") or {}
         baseline = replayable(snapshot)
         if not snapshot.get("on", True) and not self.config.get("notifyWhenOff", True):
@@ -245,8 +287,7 @@ class Notifier:
             return
 
         colour = pattern.get("color", [255, 180, 60])
-        span = pattern.get("leds") or total
-        span = max(1, min(int(span), total))
+        span = self._span(pattern, total)
         brightness = self._fit_to_budget(span, colour, int(pattern.get("bri", 130)))
 
         lit = {
@@ -264,11 +305,9 @@ class Notifier:
         if self.audio:
             self.audio.pause()
         try:
-            for _ in range(max(1, int(pattern.get("flashes", 2)))):
-                self.bridge.link.request(lit, expect_response=False)
-                time.sleep(max(0.05, pattern.get("onMs", 240) / 1000))
-                self.bridge.link.request(dark, expect_response=False)
-                time.sleep(max(0.05, pattern.get("offMs", 160) / 1000))
+            self._beat(pattern,
+                       lambda: self.bridge.link.request(lit, expect_response=False),
+                       lambda: self.bridge.link.request(dark, expect_response=False))
         finally:
             self.playing = None
             self.bridge.apply(baseline)
