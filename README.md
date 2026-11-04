@@ -188,9 +188,9 @@ bootloader too.
 
 ## Static data
 
-`data/wled-data.json` holds the 220 effect names, their slider metadata, the 72 palette
-names and the preview gradients. It is extracted from tagged WLED sources, not typed by
-hand:
+`data/wled-data.json` holds the effect names, their slider metadata, the palette names
+and the preview gradients for one WLED version — 220 effects and 72 palettes at 16.0.1.
+It is extracted from tagged WLED sources, not typed by hand:
 
 ```bash
 ./.venv/bin/python tools/gen-data.py v16.0.1      # download the tag's sources and regenerate
@@ -225,11 +225,21 @@ files are modified:
 `index.css`, `liveview.htm`, `iro.js` and `rangetouch.js` are untouched.
 `public/skin.css` is the theming hook WLED itself provides, served as is.
 
-WLED 16 added an update-check banner that reads `/json/cfg`, `/edit` and `/upload` and
-posts device details to an external service. It suppresses itself when the module reports
-access-point mode, which is exactly the case here, so nothing is requested and nothing
-leaves the machine — verified by watching the network panel on a full page load. The
-bridge serves none of those three endpoints anyway.
+WLED 16 added a version check that can post device details to `usage.wled.me`. On every
+page load it reads `/edit?func=edit&path=/version-info.json`; a version change then reads
+`/json/cfg` and posts the report — behind a modal, or straight away if an "always report"
+choice was stored on the device.
+
+The firmware skips the whole thing when the module reports access-point mode. Do not rely
+on that here: a module holding WiFi credentials and associated to a network reports
+station mode, and the check would run. What stops it on this bridge is the response
+itself — `/edit` is one of the endpoints served as an explanatory HTML page, so `res.json()`
+throws and the handler lands in its `catch`, which neither prompts nor reports.
+
+Measured by forcing the station-mode path on a loaded page: `/edit` answered 200, the
+parse threw `Unexpected token '<'`, the catch wrote the version file back with a
+`POST /upload` the bridge answered 404, no modal appeared, and nothing was sent to
+`usage.wled.me`.
 
 ## Language
 
@@ -463,8 +473,9 @@ but it is the real ceiling at that rate.
 ## Audio-reactive streaming (LedFx, Adalight)
 
 The same serial handler also accepts **Adalight** and **TPM2**, so software like LedFx can
-drive the module over USB with an *Adalight* device (115200 baud, 144 LEDs). Effects are
-then computed on the computer, unlike the bridge, which drives WLED's internal effects.
+drive the module over USB with an *Adalight* device (115200 baud, your own LED count).
+Effects are then computed on the computer, unlike the bridge, which drives WLED's internal
+effects.
 
 Only one program at a time can open the port: stop the bridge before starting LedFx. The
 exclusive lock means one of the two refuses to start rather than corrupting the other's
@@ -479,9 +490,9 @@ brightness, effect, palette, segment bounds, colours.
 ### Notifications while the audio runs
 
 Adalight frames put WLED in **realtime mode**, where it ignores its own effects and shows
-the incoming pixels — and stays there for 2.5 seconds after the last frame. A notification
-sent as a JSON state change during that window therefore changes nothing on the strip: the
-module is still displaying the last audio frame.
+the incoming pixels — and stays there for 2.5 seconds after the last frame, the firmware
+default. A notification sent as a JSON state change during that window therefore changes
+nothing on the strip: the module is still displaying the last audio frame.
 
 So when a realtime frame went out less than two seconds ago, the notification is drawn
 *into* the stream instead: the audio pauses, the flashes are sent as Adalight frames, then
@@ -623,8 +634,9 @@ notify.sh               command-line trigger
 ```
 
 Serial transport is deliberately raw `termios` rather than pyserial: pyserial drives
-DTR/RTS on open, which **reboots the module** every time the bridge connects. A raw
-`CLOCAL` open leaves those lines alone. pyserial is still installed — esptool depends on
+DTR/RTS on open, and any board wired for auto-reset — which is most of those with a USB
+socket — reads that as a reset request and **reboots every time the bridge connects**. A
+raw `CLOCAL` open leaves those lines alone. pyserial is still installed — esptool depends on
 it.
 
 ## Security

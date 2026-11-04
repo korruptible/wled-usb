@@ -200,9 +200,9 @@ bootloader correspondant.
 
 ## Données statiques
 
-`data/wled-data.json` contient les 220 noms d'effets, leurs métadonnées de curseurs,
-les 72 noms de palettes et les dégradés d'aperçu. Ces données sont extraites des
-sources WLED taguées, pas saisies à la main :
+`data/wled-data.json` contient les noms d'effets, leurs métadonnées de curseurs, les noms
+de palettes et les dégradés d'aperçu pour une version de WLED — 220 effets et 72 palettes
+en 16.0.1. Ces données sont extraites des sources WLED taguées, pas saisies à la main :
 
 ```bash
 ./.venv/bin/python tools/gen-data.py v16.0.1      # télécharge les sources du tag et régénère
@@ -239,12 +239,23 @@ index.htm : bouton « Bridge » ajouté dans la barre du haut, après « Config 
 
 L'UI suppose d'être servie sur le port 80 et perdait le port dans l'URL WebSocket.
 
-WLED 16 a ajouté un bandeau de vérification de version qui lit `/json/cfg`, `/edit` et
-`/upload` et envoie des détails sur l'appareil à un service externe. Il se désactive de
-lui-même quand le module se déclare en mode point d'accès, ce qui est précisément le cas
-ici : rien n'est demandé, rien ne sort de la machine — vérifié en observant le panneau
-réseau sur un chargement complet. Le pont ne sert de toute façon aucun de ces trois
-endpoints.
+WLED 16 a ajouté une vérification de version qui peut envoyer des détails sur l'appareil
+à `usage.wled.me`. À chaque chargement de page elle lit
+`/edit?func=edit&path=/version-info.json` ; un changement de version lit ensuite
+`/json/cfg` et envoie le rapport — derrière une fenêtre de confirmation, ou directement si
+un choix « toujours signaler » a été enregistré sur l'appareil.
+
+Le firmware saute l'ensemble quand le module se déclare en mode point d'accès. Ne pas s'y
+fier ici : un module qui garde des identifiants Wi-Fi et se connecte à un réseau se
+déclare en mode station, et la vérification s'exécuterait. Ce qui l'arrête sur ce pont,
+c'est la réponse elle-même — `/edit` fait partie des endpoints servis en page HTML
+d'explication, donc `res.json()` échoue et le handler part dans son `catch`, qui n'ouvre
+rien et n'envoie rien.
+
+Mesuré en forçant le chemin « mode station » sur une page chargée : `/edit` a répondu 200,
+le parse a levé `Unexpected token '<'`, le catch a réécrit le fichier de version par un
+`POST /upload` auquel le pont a répondu 404, aucune fenêtre ne s'est ouverte, et rien n'est
+parti vers `usage.wled.me`.
 
 Le bouton « Bridge » ouvre `/bridge` ; la page `/bridge` a son propre lien de retour. Son
 icône `⇄` n'appartient pas à la police `WIcons` de WLED, qui ne contient que ses propres
@@ -496,8 +507,9 @@ C'est fluide à l'œil, mais c'est le plafond réel de ce débit.
 ## Streaming audio-réactif (LedFx, Adalight)
 
 Le même handler série accepte aussi **Adalight** et **TPM2**. Un logiciel comme LedFx
-peut donc piloter le module en USB avec un device de type *Adalight* (115200 bauds,
-144 LEDs). Les effets sont alors calculés sur l'ordinateur, contrairement au pont qui
+peut donc piloter le module en USB avec un device de type *Adalight* (115200 bauds, votre
+nombre de LEDs). Les effets sont alors calculés sur l'ordinateur, contrairement au pont
+qui
 pilote les effets internes de WLED.
 
 Un seul programme à la fois peut ouvrir le port : arrêtez le pont avant de lancer LedFx.
@@ -513,8 +525,9 @@ en cours, joue un motif coloré, puis **restaure exactement l'état précédent*
 ### Notifications pendant le son réactif
 
 Les trames Adalight basculent WLED en **mode temps réel** : il ignore ses propres effets et
-affiche les pixels reçus, et il y reste 2,5 secondes après la dernière trame. Une
-notification envoyée comme changement d'état JSON pendant cette fenêtre ne change donc rien
+affiche les pixels reçus, et il y reste 2,5 secondes après la dernière trame, valeur par
+défaut du firmware. Une notification envoyée comme changement d'état JSON pendant cette
+fenêtre ne change donc rien
 sur le bandeau : le module affiche toujours la dernière image audio.
 
 Aussi, quand une trame temps réel est partie il y a moins de deux secondes, la notification
@@ -656,9 +669,11 @@ tools/gen-data.py       extraction des effets et palettes depuis les sources WLE
 notify.sh               déclenchement en ligne de commande
 ```
 
-Le transport série est volontairement en `termios` brut plutôt qu'en pyserial :
-pyserial pilote DTR/RTS à l'ouverture, ce qui **redémarre le module** à chaque
-connexion du pont. L'ouverture brute en `CLOCAL` laisse ces lignes tranquilles.
+Le transport série est volontairement en `termios` brut plutôt qu'en pyserial : pyserial
+pilote DTR/RTS à l'ouverture, et toute carte câblée pour l'auto-reset — c'est-à-dire la
+plupart de celles qui ont une prise USB — y lit une demande de redémarrage et **redémarre
+à chaque connexion du pont**. L'ouverture brute en `CLOCAL` laisse ces lignes
+tranquilles.
 pyserial reste présent — esptool en dépend.
 
 ## Sécurité
