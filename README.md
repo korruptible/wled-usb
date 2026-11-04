@@ -295,6 +295,11 @@ defaults write fr.wledusb.app listen "localhost,tailscale"
 defaults write fr.wledusb.app kdeconnect -bool true
 ```
 
+The bridge is a child process and goes when the app goes, whether you quit it or it is
+killed: it is started with `--exit-with-parent` and stops within a few seconds of losing
+its parent. Without that, a bridge surviving a crash keeps the serial port and the HTTP
+port, and the next launch fails silently.
+
 ### Signing
 
 The build signs with a self-signed certificate named `WLED USB Dev`, and falls back to

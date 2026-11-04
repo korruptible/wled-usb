@@ -206,9 +206,12 @@ final class Controller: NSObject, NSApplicationDelegate, NSMenuDelegate {
             + String(repeating: "·", count: 20 - bars)
     }
 
-    @objc private func quit() {
+    func applicationWillTerminate(_ notification: Notification) {
         tap?.stop()
         bridge.stop()
+    }
+
+    @objc private func quit() {
         NSApp.terminate(nil)
     }
 }

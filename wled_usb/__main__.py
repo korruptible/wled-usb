@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import pathlib
 import sys
 import threading
@@ -51,6 +52,15 @@ def pick_port(requested):
     return found[0][1]
 
 
+def watch_parent(halt):
+    def loop():
+        while not halt.wait(1.0):
+            if os.getppid() == 1:
+                halt.set()
+                return
+    threading.Thread(target=loop, name="wled-parent", daemon=True).start()
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(
         prog="wled-usb",
@@ -79,6 +89,8 @@ def main(argv=None):
     parser.add_argument("--lang", help="interface language at first run (en, fr)")
     parser.add_argument("--ui-config", default=str(ROOT / "data" / "ui.json"),
                         help="interface settings file")
+    parser.add_argument("--exit-with-parent", action="store_true",
+                        help="stop when the process that started the bridge goes away")
     parser.add_argument("--open", action="store_true", help="open the browser at startup")
     parser.add_argument("--list-ports", action="store_true", help="list the serial ports and exit")
     args = parser.parse_args(argv)
@@ -153,8 +165,12 @@ def main(argv=None):
     if args.open:
         threading.Timer(1.0, lambda: webbrowser.open(url(servers[0][1], args.http_port))).start()
 
+    halt = threading.Event()
+    if args.exit_with_parent:
+        watch_parent(halt)
+
     try:
-        threading.Event().wait()
+        halt.wait()
     except KeyboardInterrupt:
         print("\nStopping…")
     finally:

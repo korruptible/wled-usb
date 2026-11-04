@@ -53,6 +53,7 @@ final class BridgeProcess {
             "--audio-config", support.appendingPathComponent("audio.json").path,
             "--ui-config", support.appendingPathComponent("ui.json").path,
             "--lang", L10n.systemLanguage(),
+            "--exit-with-parent",
         ]
         if UserDefaults.standard.bool(forKey: "kdeconnect") {
             task.arguments?.append("--kdeconnect")

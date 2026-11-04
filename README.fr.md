@@ -320,6 +320,11 @@ defaults write fr.wledusb.app listen "localhost,tailscale"
 defaults write fr.wledusb.app kdeconnect -bool true
 ```
 
+Le pont est un processus fils et part avec l'app, qu'on la quitte ou qu'elle soit tuée :
+il est lancé avec `--exit-with-parent` et s'arrête dans les secondes qui suivent la perte
+de son parent. Sans cela, un pont ayant survécu à un plantage garde le port série et le
+port HTTP, et le lancement suivant échoue sans rien dire.
+
 ### Signature
 
 Le build signe avec un certificat auto-signé nommé `WLED USB Dev`, et retombe sur une
